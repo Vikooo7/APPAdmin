@@ -27,8 +27,8 @@ El detalle de arquitectura, tablas, endpoints, permisos y sincronización está 
 
 | RF | Descripción | Dónde está |
 |---|---|---|
-| RF06 | Consultar mínimo 30 envíos leídos desde Room (el servidor tiene 40 de ejemplo) | `PantallaPrincipal` (en `MainActivity.kt`), `EnvioDao.obtenerTodos()` |
-| RF07 | Filtrar por estado y ruta | `PantallaPrincipal`, `EnvioDao.filtrar(estado, ruta)` |
+| RF06 | Consultar mínimo 30 envíos leídos desde Room (el servidor tiene 40 de ejemplo) | `ListScreen`, `EnvioDao.obtenerTodos()` |
+| RF07 | Filtrar por estado y ruta | `ListScreen`, `EnvioDao.filtrar(estado, ruta)` |
 | RF08 | Actualizar el estado: recogido, en tránsito, en reparto o entregado | `FormScreen`, `EnvioRepository.guardarOperacion()` |
 | RF09 | Asignar un transportista a un envío | `FormScreen`, `model/Transportistas.kt` |
 | RF10 | Consultar rutas activas y tiempo estimado de llegada | `RutasScreen`, `RutaDao.obtenerConCarga()` |
@@ -63,7 +63,7 @@ Las cuentas las crea la empresa en el servidor: la app no tiene registro. La con
 | Splash | `SplashScreen.kt` | Animación de entrada. Si hay sesión guardada, entra directo |
 | Login | `LoginScreen.kt` | Inicio de sesión contra la API (rol administrador) |
 | Inicio | `HomeScreen.kt` | Panel: resumen por estado y envíos sin transportista |
-| Envíos | `PantallaPrincipal()` en `MainActivity.kt` | RF06 y RF07: lista con filtros |
+| Envíos | `ListScreen.kt` | RF06 y RF07: lista con filtros |
 | Detalle | `DetailScreen.kt` | Estado, sincronización, línea de tiempo y datos |
 | Formulario | `FormScreen.kt` | RF08 y RF09: cambiar estado y transportista |
 | Rutas activas | `RutasScreen.kt` | RF10 |
@@ -113,7 +113,15 @@ com.example.rutalogadmin/
 │   └── SyncViewModel.kt
 ├── ui/
 │   ├── navigation/AppNavigation.kt
-│   ├── screens/                        // Splash, Login, Home, Detail, Form, Rutas, Sync
+│   ├── screens/
+│   │   ├── SplashScreen.kt
+│   │   ├── LoginScreen.kt
+│   │   ├── HomeScreen.kt
+│   │   ├── ListScreen.kt
+│   │   ├── DetailScreen.kt
+│   │   ├── FormScreen.kt
+│   │   ├── SyncScreen.kt
+│   │   └── RutasScreen.kt              // rutas activas (RF10)
 │   ├── components/
 │   │   ├── ConnectivityBanner.kt
 │   │   ├── SyncStatusIndicator.kt
@@ -123,12 +131,10 @@ com.example.rutalogadmin/
 ├── util/ConnectivityObserver.kt
 ├── di/AppContainer.kt
 ├── RutaLogAdminApplication.kt
-└── MainActivity.kt                     // + PantallaPrincipal(): lista de envíos
+└── MainActivity.kt
 ```
 
-**Diferencias con la plantilla de la guía:**
-- No hay `ListScreen.kt`: la lista de envíos es `PantallaPrincipal()` dentro de `MainActivity.kt`, como en el ejemplo de clase.
-- Hay un `RutaRepository` y una `RutasScreen` de más, porque el caso tiene dos entidades (envíos y rutas).
+La estructura sigue la plantilla de la guía. Lo que hay de más responde al caso, que tiene dos entidades (envíos y rutas): `RutaEntity`, `RutaDao`, `RutaDto`, `RutaMapper`, `RutaRepository` y `RutasScreen`.
 
 ---
 

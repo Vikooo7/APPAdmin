@@ -17,7 +17,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.rutalogadmin.PantallaPrincipal
 import com.example.rutalogadmin.model.EstadoEnvio
 import com.example.rutalogadmin.ui.components.LocalEnLinea
 import com.example.rutalogadmin.ui.components.LocalOperacionesEnCola
@@ -25,6 +24,7 @@ import com.example.rutalogadmin.ui.components.PestanaOperador
 import com.example.rutalogadmin.ui.screens.DetailScreen
 import com.example.rutalogadmin.ui.screens.FormScreen
 import com.example.rutalogadmin.ui.screens.HomeScreen
+import com.example.rutalogadmin.ui.screens.ListScreen
 import com.example.rutalogadmin.ui.screens.LoginScreen
 import com.example.rutalogadmin.ui.screens.RutasScreen
 import com.example.rutalogadmin.ui.screens.SplashScreen
@@ -157,7 +157,7 @@ fun AppNavigation(
                 val filtroEstado by envioViewModel.filtroEstado.collectAsState()
                 val filtroRuta by envioViewModel.filtroRuta.collectAsState()
                 val rutas by envioViewModel.rutas.collectAsState()
-                PantallaPrincipal(
+                ListScreen(
                     nombreUsuario = nombreUsuario,
                     envios = filtrados,
                     totalEnvios = todos.size,
