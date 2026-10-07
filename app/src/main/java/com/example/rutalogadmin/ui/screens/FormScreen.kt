@@ -37,11 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.rutalogadmin.data.local.Envio
+import com.example.rutalogadmin.model.Envio
 import com.example.rutalogadmin.model.EstadoEnvio
 import com.example.rutalogadmin.model.Transportistas
 import com.example.rutalogadmin.model.estaCerrado
@@ -137,7 +136,7 @@ fun FormScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Obligatorio para pasar el envío a En tránsito, En reparto o Entregado.",
+                    text = "Obligatorio para cualquier estado distinto de pendiente de recojo.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -49,10 +49,20 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
-    // Room: base de datos local (tablas usuarios y envios)
+    // Room: base de datos local y cola de operaciones pendientes
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // API REST: Retrofit + Gson (Gson también arma el payload de la cola)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+
+    // Sincronización en segundo plano (SyncWorker)
+    implementation(libs.androidx.work.runtime.ktx)
+
+    // Sesión: el token se guarda cifrado
+    implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

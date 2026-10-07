@@ -30,14 +30,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.rutalogadmin.data.local.RutaConCarga
 import com.example.rutalogadmin.model.CatalogoRutas
 import com.example.rutalogadmin.model.EstadoEnvio
+import com.example.rutalogadmin.model.RutaConCarga
 import com.example.rutalogadmin.ui.components.AppScaffold
 import com.example.rutalogadmin.ui.components.BannerDegradado
 import com.example.rutalogadmin.ui.components.EstadoVacio

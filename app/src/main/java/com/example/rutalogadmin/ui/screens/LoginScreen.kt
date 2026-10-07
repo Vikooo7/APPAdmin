@@ -42,7 +42,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -54,20 +53,18 @@ import androidx.compose.ui.unit.dp
 import com.example.rutalogadmin.ui.components.AppLogo
 import com.example.rutalogadmin.ui.components.InputField
 import com.example.rutalogadmin.ui.components.MensajeError
-import com.example.rutalogadmin.ui.components.MensajeInfo
 import com.example.rutalogadmin.ui.theme.AzulRuta
 import com.example.rutalogadmin.ui.theme.AzulRutaClaro
 import com.example.rutalogadmin.viewmodel.AuthUiState
 
-/** Inicio de sesión del operador contra la tabla usuarios (rol "administrador"). */
+/** Inicio de sesión del operador (rol "administrador"). Las cuentas las crea la empresa en el servidor. */
 @Composable
 fun LoginScreen(
     estado: AuthUiState,
     onLogin: (correo: String, clave: String) -> Unit,
-    onIrARegistro: () -> Unit,
     onLimpiarMensajes: () -> Unit
 ) {
-    var correo by rememberSaveable(estado.correoSugerido) { mutableStateOf(estado.correoSugerido) }
+    var correo by rememberSaveable { mutableStateOf("") }
     var clave by rememberSaveable { mutableStateOf("") }
 
     val sacudida = remember { Animatable(0f) }
@@ -138,8 +135,6 @@ fun LoginScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    estado.mensaje?.let { MensajeInfo(texto = it) }
-
                     InputField(
                         valor = correo,
                         onValorChange = {
@@ -207,22 +202,7 @@ fun LoginScreen(
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "¿No tienes cuenta?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(onClick = onIrARegistro) {
-                    Text("Regístrate", fontWeight = FontWeight.Bold)
-                }
-            }
+            Spacer(modifier = Modifier.navigationBarsPadding())
         }
     }
 }

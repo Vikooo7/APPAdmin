@@ -1,7 +1,5 @@
 package com.example.rutalogadmin.model
 
-import com.example.rutalogadmin.data.local.Envio
-
 /**
  * Estados de un envío. En Room se guarda el [codigo]. La App Cliente registra
  * los envíos como PENDIENTE; la App Operador los pasa a los demás estados.

@@ -31,8 +31,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.rutalogadmin.data.local.Envio
 import com.example.rutalogadmin.model.CatalogoRutas
+import com.example.rutalogadmin.model.Envio
 import com.example.rutalogadmin.model.estadoEnvio
 
 /** Tarjeta de un envío en las listas del operador (Inicio y Envíos). */
@@ -133,6 +133,11 @@ fun ItemCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Indica si el último cambio ya está en el servidor o sigue en la cola local.
+                SyncStatusIndicator(estado = envio.estadoSync, modifier = Modifier.weight(1f))
                 Text(
                     text = formatoPeso(envio.pesoKg),
                     style = MaterialTheme.typography.bodySmall,

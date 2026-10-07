@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,23 +33,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.rutalogadmin.data.local.Envio
-import com.example.rutalogadmin.data.local.Ruta
 import com.example.rutalogadmin.model.CatalogoRutas
+import com.example.rutalogadmin.model.Envio
+import com.example.rutalogadmin.model.EstadoSincronizacion
+import com.example.rutalogadmin.model.Ruta
 import com.example.rutalogadmin.model.estaCerrado
 import com.example.rutalogadmin.model.estadoEnvio
 import com.example.rutalogadmin.ui.components.AppScaffold
 import com.example.rutalogadmin.ui.components.BannerDegradado
 import com.example.rutalogadmin.ui.components.EstadoBadge
 import com.example.rutalogadmin.ui.components.LineaDeTiempo
+import com.example.rutalogadmin.ui.components.MensajeError
 import com.example.rutalogadmin.ui.components.MensajeInfo
+import com.example.rutalogadmin.ui.components.SyncStatusIndicator
 import com.example.rutalogadmin.ui.components.TarjetaSeccion
 import com.example.rutalogadmin.ui.components.formatoPeso
 import com.example.rutalogadmin.ui.components.formatoSoles
@@ -136,6 +139,25 @@ fun DetailScreen(
                         Icon(Icons.Default.SwapHoriz, contentDescription = null)
                         Text("  Actualizar estado y transportista")
                     }
+                }
+            }
+
+            item {
+                TarjetaSeccion(titulo = "Sincronización", icono = Icons.Default.Sync) {
+                    SyncStatusIndicator(estado = envio.estadoSync)
+                    Text(
+                        text = when (envio.estadoSync) {
+                            EstadoSincronizacion.SINCRONIZADO ->
+                                "Este envío está igual que en el servidor (id remoto ${envio.idRemoto}, versión ${envio.version})."
+                            EstadoSincronizacion.ERROR ->
+                                "El servidor rechazó el último cambio. Ve a la pestaña Sincronizar para reintentar o descartar."
+                            else ->
+                                "El cambio está guardado en el teléfono. Se enviará al servidor cuando haya conexión."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    envio.mensajeError?.let { MensajeError(texto = it) }
                 }
             }
 

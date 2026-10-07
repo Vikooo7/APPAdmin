@@ -15,7 +15,10 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,7 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -46,12 +48,13 @@ import com.example.rutalogadmin.ui.theme.AzulRuta
 enum class PestanaOperador(val etiqueta: String, val icono: ImageVector) {
     INICIO("Inicio", Icons.Default.Dashboard),
     ENVIOS("Envíos", Icons.Default.Inventory),
-    RUTAS("Rutas", Icons.Default.Map)
+    RUTAS("Rutas", Icons.Default.Map),
+    SINCRONIZAR("Sincronizar", Icons.Default.Sync)
 }
 
 /**
- * Estructura común de las pantallas: barra superior azul y, si [pestana] no es null,
- * la barra inferior con Inicio / Envíos / Rutas.
+ * Estructura común de las pantallas: barra superior azul, aviso de "sin conexión" y,
+ * si [pestana] no es null, la barra inferior con Inicio / Envíos / Rutas / Sincronizar.
  */
 @Composable
 fun AppScaffold(
@@ -66,6 +69,8 @@ fun AppScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     var confirmarSalida by remember { mutableStateOf(false) }
+    val enLinea = LocalEnLinea.current
+    val enCola = LocalOperacionesEnCola.current
 
     Scaffold(
         modifier = modifier,
@@ -122,22 +127,34 @@ fun AppScaffold(
                         NavigationBarItem(
                             selected = opcion == pestana,
                             onClick = { if (opcion != pestana) onPestana(opcion) },
-                            icon = { Icon(opcion.icono, contentDescription = opcion.etiqueta) },
-                            label = { Text(opcion.etiqueta) }
+                            icon = {
+                                // La pestaña Sincronizar muestra cuántas operaciones hay en la cola.
+                                if (opcion == PestanaOperador.SINCRONIZAR && enCola > 0) {
+                                    BadgedBox(badge = { Badge { Text(enCola.toString()) } }) {
+                                        Icon(opcion.icono, contentDescription = opcion.etiqueta)
+                                    }
+                                } else {
+                                    Icon(opcion.icono, contentDescription = opcion.etiqueta)
+                                }
+                            },
+                            label = { Text(opcion.etiqueta, maxLines = 1) }
                         )
                     }
                 }
             }
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
                 .imePadding()
         ) {
-            content(PaddingValues(0.dp))
+            ConnectivityBanner(enLinea = enLinea)
+            Box(modifier = Modifier.weight(1f)) {
+                content(PaddingValues(0.dp))
+            }
         }
     }
 
@@ -146,7 +163,15 @@ fun AppScaffold(
             onDismissRequest = { confirmarSalida = false },
             icon = { Icon(Icons.Default.PowerSettingsNew, contentDescription = null) },
             title = { Text("¿Cerrar sesión?") },
-            text = { Text("Los envíos y rutas quedan guardados en el teléfono.") },
+            text = {
+                Text(
+                    if (enCola > 0) {
+                        "Tienes $enCola cambio(s) sin enviar. Quedan guardados en el teléfono y se enviarán cuando vuelvas a entrar."
+                    } else {
+                        "Los envíos y rutas quedan guardados en el teléfono."
+                    }
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
