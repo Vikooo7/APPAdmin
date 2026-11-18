@@ -10,6 +10,9 @@ import com.example.rutalogadmin.ui.navigation.AppNavigation
 import com.example.rutalogadmin.ui.theme.RutaLogTheme
 import com.example.rutalogadmin.viewmodel.AuthViewModel
 import com.example.rutalogadmin.viewmodel.EnvioViewModel
+import com.example.rutalogadmin.viewmodel.OperacionViewModel
+import com.example.rutalogadmin.viewmodel.PagosViewModel
+import com.example.rutalogadmin.viewmodel.RiesgoViewModel
 import com.example.rutalogadmin.viewmodel.SyncViewModel
 
 /**
@@ -44,10 +47,21 @@ class MainActivity : ComponentActivity() {
                         simularError = contenedor.simularErrorServidor
                     )
                 )
+                val operacionViewModel: OperacionViewModel = viewModel(
+                    factory = OperacionViewModel.factory(
+                        repositorio = contenedor.operacionRepository,
+                        envioRepository = contenedor.envioRepository
+                    )
+                )
+                val pagosViewModel: PagosViewModel = viewModel(factory = PagosViewModel.factory(contenedor.pagosRepository))
+                val riesgoViewModel: RiesgoViewModel = viewModel(factory = RiesgoViewModel.factory(contenedor.riesgoRepository))
                 AppNavigation(
+                    pagosViewModel = pagosViewModel,
+                    riesgoViewModel = riesgoViewModel,
                     authViewModel = authViewModel,
                     envioViewModel = envioViewModel,
-                    syncViewModel = syncViewModel
+                    syncViewModel = syncViewModel,
+                    operacionViewModel = operacionViewModel
                 )
             }
         }

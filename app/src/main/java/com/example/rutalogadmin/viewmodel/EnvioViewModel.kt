@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.rutalogadmin.data.repository.EnvioRepository
 import com.example.rutalogadmin.data.repository.RutaRepository
+import com.example.rutalogadmin.model.CourierConCarga
 import com.example.rutalogadmin.model.Envio
 import com.example.rutalogadmin.model.EstadoEnvio
 import com.example.rutalogadmin.model.NumeroGuia
@@ -51,7 +52,7 @@ class EnvioViewModel(
     private val _filtroRuta = MutableStateFlow<String?>(null)
     val filtroRuta: StateFlow<String?> = _filtroRuta.asStateFlow()
 
-    /** RF07: Room filtra por estado y ruta; la búsqueda por guía o transportista se aplica encima. */
+    /** RF07: Room filtra por estado y ruta; la búsqueda por guía o courier se aplica encima. */
     val enviosFiltrados: StateFlow<List<Envio>> =
         combine(_filtroEstado, _filtroRuta) { estado, ruta -> estado to ruta }
             .flatMapLatest { (estado, ruta) -> envioRepository.filtrar(estado?.codigo, ruta) }
@@ -91,17 +92,17 @@ class EnvioViewModel(
     fun guardarOperacion(
         envio: Envio,
         nuevoEstado: EstadoEnvio,
-        transportista: String?,
+        courier: CourierConCarga?,
         onError: (String) -> Unit,
         onGuardado: () -> Unit
     ) {
-        val error = ReglasOperacion.validar(envio, nuevoEstado, transportista)
+        val error = ReglasOperacion.validar(envio, nuevoEstado, courier)
         if (error != null) {
             onError(error)
             return
         }
         viewModelScope.launch {
-            envioRepository.guardarOperacion(envio.id, nuevoEstado, transportista)
+            envioRepository.guardarOperacion(envio.id, nuevoEstado, courier?.courier)
             programarSincronizacion()
             onGuardado()
         }

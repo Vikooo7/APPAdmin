@@ -1,6 +1,5 @@
 package com.example.rutalogadmin.data.repository
 
-import androidx.compose.foundation.layout.size
 import androidx.room.withTransaction
 import com.example.rutalogadmin.data.local.AppDatabase
 import com.example.rutalogadmin.data.local.dao.OperacionConGuia
@@ -11,6 +10,7 @@ import com.example.rutalogadmin.data.mapper.aEntidad
 import com.example.rutalogadmin.data.remote.ResultadoApi
 import com.example.rutalogadmin.data.remote.api.ApiService
 import com.example.rutalogadmin.data.remote.dto.ActualizarEnvioRequest
+import com.example.rutalogadmin.data.remote.dto.CourierDto
 import com.example.rutalogadmin.data.remote.dto.EnvioDto
 import com.example.rutalogadmin.data.remote.dto.RutaDto
 import com.example.rutalogadmin.data.remote.llamarApi
@@ -28,7 +28,9 @@ data class ResultadoSync(
     val rechazadas: Int = 0,
     val descargados: Int = 0,
     /** null si todo salió bien; si no, el motivo por el que se detuvo. */
-    val error: String? = null
+    val error: String? = null,
+    /** La API respondió 401: hay que volver a iniciar sesión (los cambios siguen en la cola). */
+    val sesionVencida: Boolean = false
 )
 
 /**
@@ -48,6 +50,7 @@ class SyncRepository(
 
     private val envioDao = db.envioDao()
     private val rutaDao = db.rutaDao()
+    private val courierDao = db.courierDao()
     private val operacionDao = db.operacionPendienteDao()
     private val gson = Gson()
 
@@ -86,7 +89,7 @@ class SyncRepository(
                     if (resultado.http == 401) {
                         // Sesión vencida: no es un rechazo del cambio, que sigue en la cola.
                         marcar(operacion, EstadoSincronizacion.PENDIENTE)
-                        return@withLock ResultadoSync(enviadas, rechazadas, error = resultado.mensaje)
+                        return@withLock ResultadoSync(enviadas, rechazadas, error = resultado.mensaje, sesionVencida = true)
                     }
                     aplicarRechazo(operacion, resultado)
                     rechazadas++
@@ -141,6 +144,7 @@ class SyncRepository(
                 envio.copy(
                     estado = datos?.estadoAnterior ?: envio.estado,
                     transportistaAsignado = if (datos != null) datos.transportistaAnterior else envio.transportistaAsignado,
+                    courierId = if (datos != null) datos.courierAnterior else envio.courierId,
                     estadoSync = EstadoSincronizacion.SINCRONIZADO.name,
                     mensajeError = null
                 )
@@ -157,20 +161,24 @@ class SyncRepository(
         }
     }
 
-    /** RF08 + RF09: envía el cambio de estado y transportista con la versión que conocía el teléfono. */
-    private suspend fun enviar(operacion: OperacionPendienteEntity, envio: EnvioEntity): ResultadoApi<EnvioDto> {
+    /** RF08 + RF09: envía el cambio de estado y courier con la versión que conocía el teléfono. */
+    private suspend fun enviar(operacion: OperacionPendienteEntity, envio: EnvioEntity): ResultadoApi<EnvioDto> =
+        llamarApi { api.actualizarEnvio(envio.idRemoto, solicitudDeCambio(operacion, envio)) }
+
+    private fun solicitudDeCambio(operacion: OperacionPendienteEntity, envio: EnvioEntity): ActualizarEnvioRequest {
         val datos = leerPayload(operacion)
-        return llamarApi {
-            api.actualizarEnvio(
-                envio.idRemoto,
-                ActualizarEnvioRequest(
-                    uuidOperacion = operacion.uuidOperacion,
-                    estado = datos?.estado ?: envio.estado,
-                    transportistaAsignado = if (datos != null) datos.transportistaAsignado else envio.transportistaAsignado,
-                    version = envio.version
-                )
-            )
-        }
+        val courierId = datos?.courierId ?: envio.courierId
+        // Un cambio guardado antes de actualizar la app solo trae el texto "Nombre · Placa".
+        // Se envía únicamente si ese cambio modificó el transportista; si no, el servidor conserva el que tiene.
+        val transportistaDelParcial = datos?.transportistaAsignado
+            ?.takeIf { courierId == null && it != datos.transportistaAnterior }
+        return ActualizarEnvioRequest(
+            uuidOperacion = operacion.uuidOperacion,
+            estado = datos?.estado ?: envio.estado,
+            courierId = courierId,
+            transportistaAsignado = transportistaDelParcial,
+            version = envio.version
+        )
     }
 
     private suspend fun aplicarExito(operacion: OperacionPendienteEntity, remoto: EnvioDto) {
@@ -204,7 +212,7 @@ class SyncRepository(
             rechazo.mensaje
         } else {
             val estado = EstadoEnvio.desde(enServidor.estado).etiqueta.lowercase()
-            val transportista = enServidor.transportistaAsignado ?: "sin transportista"
+            val transportista = enServidor.transportistaAsignado ?: "sin courier"
             "${rechazo.mensaje} En el servidor: $estado, $transportista."
         }
         db.withTransaction {
@@ -227,29 +235,40 @@ class SyncRepository(
         }
     }
 
-    /** RF11: descarga rutas y envíos. Si algo falla, lo ya guardado en Room no se toca. */
+    /** RF11: descarga rutas, couriers y envíos. Si algo falla, lo ya guardado en Room no se toca. */
     private suspend fun descargar(enviadas: Int, rechazadas: Int): ResultadoSync {
         val rutas = when (val respuesta = llamarApi { api.obtenerRutas() }) {
             is ResultadoApi.Exito -> respuesta.valor.datos
-            is ResultadoApi.Rechazo -> return ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje)
+            is ResultadoApi.Rechazo -> return ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje, sesionVencida = respuesta.http == 401)
+            is ResultadoApi.Fallo -> return ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje)
+        }
+        val couriers = when (val respuesta = llamarApi { api.obtenerCouriers() }) {
+            is ResultadoApi.Exito -> respuesta.valor.datos
+            is ResultadoApi.Rechazo -> return ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje, sesionVencida = respuesta.http == 401)
             is ResultadoApi.Fallo -> return ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje)
         }
         return when (val respuesta = llamarApi { api.obtenerEnvios() }) {
             is ResultadoApi.Exito -> {
-                guardarDescarga(rutas, respuesta.valor.datos, respuesta.valor.servidorAhora)
+                guardarDescarga(rutas, couriers, respuesta.valor.datos, respuesta.valor.servidorAhora)
                 ResultadoSync(enviadas, rechazadas, descargados = respuesta.valor.datos.size)
             }
 
-            is ResultadoApi.Rechazo -> ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje)
+            is ResultadoApi.Rechazo -> ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje, sesionVencida = respuesta.http == 401)
             is ResultadoApi.Fallo -> ResultadoSync(enviadas, rechazadas, error = respuesta.mensaje)
         }
     }
 
     /** Actualiza Room con lo descargado, sin sobrescribir cambios locales pendientes. */
-    private suspend fun guardarDescarga(rutas: List<RutaDto>, remotos: List<EnvioDto>, horaServidor: String?) {
+    private suspend fun guardarDescarga(
+        rutas: List<RutaDto>,
+        couriers: List<CourierDto>,
+        remotos: List<EnvioDto>,
+        horaServidor: String?
+    ) {
         db.withTransaction {
-            // Las rutas son de solo lectura: se reemplaza la copia local completa.
+            // Rutas y couriers son de solo lectura: se reemplaza la copia local completa.
             rutaDao.reemplazarTodas(rutas.map { it.aEntidad() })
+            courierDao.reemplazarTodos(couriers.map { it.aEntidad() })
 
             val locales = envioDao.todos()
             val porIdRemoto = locales.associateBy { it.idRemoto }

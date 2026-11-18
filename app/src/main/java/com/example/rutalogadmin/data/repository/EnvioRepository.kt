@@ -6,6 +6,7 @@ import com.example.rutalogadmin.data.local.entities.EnvioEntity
 import com.example.rutalogadmin.data.local.entities.OperacionPendienteEntity
 import com.example.rutalogadmin.data.local.entities.TipoOperacion
 import com.example.rutalogadmin.data.mapper.aModelo
+import com.example.rutalogadmin.model.Courier
 import com.example.rutalogadmin.model.Envio
 import com.example.rutalogadmin.model.EstadoEnvio
 import com.example.rutalogadmin.model.EstadoSincronizacion
@@ -23,7 +24,10 @@ data class PayloadEnvio(
     val estado: String,
     val transportistaAsignado: String?,
     val estadoAnterior: String,
-    val transportistaAnterior: String?
+    val transportistaAnterior: String?,
+    // Desde la versión 3. En las operaciones guardadas antes de actualizar la app llegan como null.
+    val courierId: Int? = null,
+    val courierAnterior: Int? = null
 )
 
 /**
@@ -48,13 +52,17 @@ class EnvioRepository(private val db: AppDatabase) {
     fun observarPorId(id: Int): Flow<Envio?> =
         envioDao.observarPorId(id).map { it?.aModelo() }
 
-    /** RF08 + RF09: guarda el nuevo estado y el transportista, y deja el cambio en la cola. */
-    suspend fun guardarOperacion(idLocal: Int, nuevoEstado: EstadoEnvio, transportista: String?) {
+    /**
+     * RF08 + RF09: guarda el nuevo estado y el courier, y deja el cambio en la cola.
+     * [courier] null significa que el envío conserva el courier (o transportista) que ya tenía.
+     */
+    suspend fun guardarOperacion(idLocal: Int, nuevoEstado: EstadoEnvio, courier: Courier?) {
         db.withTransaction {
             val actual = envioDao.porId(idLocal) ?: return@withTransaction
             val cambiado = actual.copy(
                 estado = nuevoEstado.codigo,
-                transportistaAsignado = transportista,
+                courierId = courier?.id ?: actual.courierId,
+                transportistaAsignado = courier?.etiqueta ?: actual.transportistaAsignado,
                 estadoSync = EstadoSincronizacion.PENDIENTE.name,
                 mensajeError = null
             )
@@ -78,7 +86,7 @@ class EnvioRepository(private val db: AppDatabase) {
             val original = gson.fromJson(reutilizable.payload, PayloadEnvio::class.java)
             operacionDao.actualizar(
                 reutilizable.copy(
-                    payload = payload(cambiado, original.estadoAnterior, original.transportistaAnterior),
+                    payload = payload(cambiado, original.estadoAnterior, original.transportistaAnterior, original.courierAnterior),
                     estado = EstadoSincronizacion.PENDIENTE.name,
                     mensajeError = null
                 )
@@ -90,7 +98,7 @@ class EnvioRepository(private val db: AppDatabase) {
                     entidad = "envios",
                     idEntidadLocal = cambiado.id,
                     tipoOperacion = TipoOperacion.ACTUALIZAR,
-                    payload = payload(cambiado, anterior.estado, anterior.transportistaAsignado),
+                    payload = payload(cambiado, anterior.estado, anterior.transportistaAsignado, anterior.courierId),
                     fechaRegistro = System.currentTimeMillis(),
                     estado = EstadoSincronizacion.PENDIENTE.name
                 )
@@ -98,6 +106,19 @@ class EnvioRepository(private val db: AppDatabase) {
         }
     }
 
-    private fun payload(envio: EnvioEntity, estadoAnterior: String, transportistaAnterior: String?): String =
-        gson.toJson(PayloadEnvio(envio.estado, envio.transportistaAsignado, estadoAnterior, transportistaAnterior))
+    private fun payload(
+        envio: EnvioEntity,
+        estadoAnterior: String,
+        transportistaAnterior: String?,
+        courierAnterior: Int?
+    ): String = gson.toJson(
+        PayloadEnvio(
+            estado = envio.estado,
+            transportistaAsignado = envio.transportistaAsignado,
+            estadoAnterior = estadoAnterior,
+            transportistaAnterior = transportistaAnterior,
+            courierId = envio.courierId,
+            courierAnterior = courierAnterior
+        )
+    )
 }

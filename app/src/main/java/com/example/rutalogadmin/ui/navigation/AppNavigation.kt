@@ -18,10 +18,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.rutalogadmin.model.EstadoEnvio
+import com.example.rutalogadmin.model.RolUsuario
 import com.example.rutalogadmin.ui.components.LocalEnLinea
 import com.example.rutalogadmin.ui.components.LocalOperacionesEnCola
 import com.example.rutalogadmin.ui.components.PestanaOperador
+import com.example.rutalogadmin.ui.screens.AsignacionScreen
 import com.example.rutalogadmin.ui.screens.DetailScreen
+import com.example.rutalogadmin.ui.screens.FallidasScreen
 import com.example.rutalogadmin.ui.screens.FormScreen
 import com.example.rutalogadmin.ui.screens.HomeScreen
 import com.example.rutalogadmin.ui.screens.ListScreen
@@ -31,7 +34,13 @@ import com.example.rutalogadmin.ui.screens.SplashScreen
 import com.example.rutalogadmin.ui.screens.SyncScreen
 import com.example.rutalogadmin.viewmodel.AuthViewModel
 import com.example.rutalogadmin.viewmodel.EnvioViewModel
+import com.example.rutalogadmin.viewmodel.OperacionViewModel
+import com.example.rutalogadmin.viewmodel.PagosViewModel
+import com.example.rutalogadmin.ui.screens.CreditoScreen
+import com.example.rutalogadmin.ui.screens.LiquidacionScreen
 import com.example.rutalogadmin.viewmodel.SyncViewModel
+import com.example.rutalogadmin.viewmodel.RiesgoViewModel
+import com.example.rutalogadmin.ui.screens.RiesgoScreen
 import kotlinx.coroutines.flow.flowOf
 
 object Rutas {
@@ -43,22 +52,40 @@ object Rutas {
     const val SINCRONIZAR = "sincronizar"
     const val DETALLE = "detalle/{envioId}"
     const val FORMULARIO = "formulario/{envioId}"
+    const val ASIGNACION = "asignacion"
+    const val FALLIDAS = "fallidas"
+    const val LIQUIDACIONES = "liquidaciones"
+    const val CREDITO = "credito"
+    const val RIESGO = "riesgo"
 
     fun detalle(id: Int) = "detalle/$id"
     fun formulario(id: Int) = "formulario/$id"
 }
 
-/** Splash → Login (o directo al Inicio si ya hay sesión) → Inicio / Envíos / Rutas / Sincronizar. */
+/**
+ * Splash → Login (o directo al Inicio si ya hay sesión) → Inicio / Envíos / Rutas / Sincronizar.
+ * Desde el Inicio se abren Asignar envíos y Entregas fallidas.
+ */
 @Composable
 fun AppNavigation(
     authViewModel: AuthViewModel,
     envioViewModel: EnvioViewModel,
     syncViewModel: SyncViewModel,
+    operacionViewModel: OperacionViewModel,
+    pagosViewModel: PagosViewModel,
+    riesgoViewModel: RiesgoViewModel,
     navController: NavHostController = rememberNavController()
 ) {
+    val riesgo by riesgoViewModel.estado.collectAsState()
+    val irARiesgo: () -> Unit = { navController.navigate(Rutas.RIESGO) { launchSingleTop = true } }
+    // Aprobar liquidaciones y Mi crédito son solo del administrador (tabla de roles de la ficha).
+    val esAdministrador = authViewModel.estado.collectAsState().value.usuario?.rol == "administrador"
     val auth by authViewModel.estado.collectAsState()
     val sync by syncViewModel.estado.collectAsState()
+    val couriers by operacionViewModel.couriers.collectAsState()
     val nombreUsuario = auth.usuario?.nombre.orEmpty()
+    val rolUsuario = auth.usuario?.rol?.let { RolUsuario.desde(it)?.etiqueta } ?: RolUsuario.OPERADOR.etiqueta
+    val irAFallidas: () -> Unit = { navController.navigate(Rutas.FALLIDAS) { launchSingleTop = true } }
     // Mientras se comprueba la sesión guardada no se expulsa al operador al Login.
     val haySesion = auth.usuario != null || auth.comprobandoSesion
 
@@ -84,12 +111,18 @@ fun AppNavigation(
         irAPestana(PestanaOperador.ENVIOS)
     }
 
-    val cerrarSesion: () -> Unit = {
-        authViewModel.cerrarSesion()
+    val salir: (String?) -> Unit = { motivo ->
+        authViewModel.cerrarSesion(motivo)
         envioViewModel.limpiarFiltros()
         navController.navigate(Rutas.LOGIN) {
             popUpTo(navController.graph.id) { inclusive = true }
         }
+    }
+    val cerrarSesion: () -> Unit = { salir(null) }
+
+    // La sesión dura 30 días: al vencer, la API responde 401 y se vuelve al login sin perder la cola.
+    syncViewModel.alVencerSesion = {
+        salir("Tu sesión venció. Vuelve a iniciar sesión: tus cambios sin enviar siguen guardados.")
     }
 
     CompositionLocalProvider(
@@ -129,6 +162,15 @@ fun AppNavigation(
                             }
                         }
                     },
+                    onGoogle = { token ->
+                        authViewModel.loginConGoogle(token) {
+                            syncViewModel.sincronizar(silencioso = true)
+                            navController.navigate(Rutas.HOME) {
+                                popUpTo(Rutas.LOGIN) { inclusive = true }
+                            }
+                        }
+                    },
+                    onErrorGoogle = authViewModel::avisarError,
                     onLimpiarMensajes = authViewModel::limpiarMensajes
                 )
             }
@@ -137,12 +179,22 @@ fun AppNavigation(
                 SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
                 val envios by envioViewModel.envios.collectAsState()
                 val rutas by envioViewModel.rutasConCarga.collectAsState()
+                // Una vez por sesión de la app: el número de entregas de riesgo alto para el acceso del Inicio.
+                LaunchedEffect(auth.usuario?.id) { if (auth.usuario != null && riesgo.respuesta == null) riesgoViewModel.cargar() }
                 HomeScreen(
                     nombreUsuario = nombreUsuario,
+                    rol = rolUsuario,
                     envios = envios,
                     rutasActivas = rutas.count { it.esActiva },
                     onVerEstado = { estado -> verEnvios(estado, null) },
                     onVerRutas = { irAPestana(PestanaOperador.RUTAS) },
+                    onAsignar = { navController.navigate(Rutas.ASIGNACION) { launchSingleTop = true } },
+                    onFallidas = irAFallidas,
+                    esAdministrador = esAdministrador,
+                    onLiquidaciones = { navController.navigate(Rutas.LIQUIDACIONES) { launchSingleTop = true } },
+                    onCredito = { navController.navigate(Rutas.CREDITO) { launchSingleTop = true } },
+                    riesgoAlto = riesgo.respuesta?.resumen?.riesgoAlto,
+                    onRiesgo = irARiesgo,
                     onEnvio = { navController.navigate(Rutas.detalle(it.id)) },
                     onPestana = irAPestana,
                     onCerrarSesion = cerrarSesion
@@ -225,7 +277,8 @@ fun AppNavigation(
                     envio = envio,
                     ruta = ruta,
                     onVolver = { navController.popBackStack() },
-                    onActualizar = { navController.navigate(Rutas.formulario(it.id)) }
+                    onActualizar = { navController.navigate(Rutas.formulario(it.id)) },
+                    onVerFallidas = irAFallidas
                 )
             }
 
@@ -239,14 +292,93 @@ fun AppNavigation(
                 val envio by flujo.collectAsState(initial = null)
                 FormScreen(
                     envio = envio,
+                    couriers = couriers,
                     onVolver = { navController.popBackStack() },
-                    onGuardar = { cambiado, estado, transportista, onError, onGuardado ->
-                        envioViewModel.guardarOperacion(cambiado, estado, transportista, onError) {
+                    onVerFallidas = irAFallidas,
+                    onGuardar = { cambiado, estado, courier, onError, onGuardado ->
+                        envioViewModel.guardarOperacion(cambiado, estado, courier, onError) {
                             // El cambio ya está en Room y en la cola; si hay conexión se envía de inmediato.
                             syncViewModel.sincronizar(silencioso = true)
                             onGuardado()
                         }
                     }
+                )
+            }
+
+            composable(Rutas.ASIGNACION) {
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                val estado by operacionViewModel.asignacion.collectAsState()
+                val candidatos by operacionViewModel.candidatos.collectAsState()
+                // HU-O01: al abrir Asignación se pide el riesgo para marcar las entregas de riesgo alto.
+                LaunchedEffect(Unit) { riesgoViewModel.cargar() }
+                AsignacionScreen(
+                    riesgoAlto = riesgo.altosPorGuia,
+                    onVerRiesgo = irARiesgo,
+                    estado = estado,
+                    envios = candidatos,
+                    couriers = couriers,
+                    puedeAsignarse = operacionViewModel::puedeAsignarse,
+                    onZona = operacionViewModel::cambiarZona,
+                    onSoloSinCourier = operacionViewModel::cambiarSoloSinCourier,
+                    onAlternar = operacionViewModel::alternarSeleccion,
+                    onSeleccionarTodos = operacionViewModel::seleccionarTodos,
+                    onLimpiarSeleccion = operacionViewModel::limpiarSeleccion,
+                    onCourier = operacionViewModel::elegirCourier,
+                    onAsignar = operacionViewModel::asignar,
+                    onMensajeMostrado = operacionViewModel::mensajeAsignacionMostrado,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
+            // RF-O02 / ML-01: riesgo de entrega fallida y aviso previo al destinatario.
+            composable(Rutas.RIESGO) {
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                RiesgoScreen(
+                    estado = riesgo,
+                    onCargar = riesgoViewModel::cargar,
+                    onSoloAltos = riesgoViewModel::cambiarSoloAltos,
+                    onPedir = riesgoViewModel::pedirConfirmacion,
+                    onConfirmar = riesgoViewModel::registrarConfirmacion,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
+            // RF-O03 / RF-O04: liquidación a remitentes con Banco Andino.
+            composable(Rutas.LIQUIDACIONES) {
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                val estado by pagosViewModel.liquidacion.collectAsState()
+                LiquidacionScreen(
+                    estado = estado,
+                    esAdministrador = esAdministrador,
+                    onCargar = pagosViewModel::cargarLiquidaciones,
+                    onCalcular = pagosViewModel::calcular,
+                    onAprobar = pagosViewModel::aprobar,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
+            // RF-O06: Mi crédito (solo administrador; la API también lo exige).
+            composable(Rutas.CREDITO) {
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                val estado by pagosViewModel.credito.collectAsState()
+                CreditoScreen(
+                    estado = estado,
+                    onCargar = pagosViewModel::cargarCredito,
+                    onSolicitar = pagosViewModel::solicitar,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
+            composable(Rutas.FALLIDAS) {
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                val estado by operacionViewModel.fallidas.collectAsState()
+                FallidasScreen(
+                    estado = estado,
+                    couriers = couriers,
+                    onCargar = operacionViewModel::cargarFallidas,
+                    onReprogramar = { fallida, courier -> operacionViewModel.reprogramar(fallida, courier?.courier) },
+                    onMensajeMostrado = operacionViewModel::mensajeFallidasMostrado,
+                    onVolver = { navController.popBackStack() }
                 )
             }
         }

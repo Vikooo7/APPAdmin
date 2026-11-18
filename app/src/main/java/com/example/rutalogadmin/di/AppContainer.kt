@@ -7,6 +7,9 @@ import com.example.rutalogadmin.data.remote.RetrofitClient
 import com.example.rutalogadmin.data.remote.api.ApiService
 import com.example.rutalogadmin.data.repository.AuthRepository
 import com.example.rutalogadmin.data.repository.EnvioRepository
+import com.example.rutalogadmin.data.repository.OperacionRepository
+import com.example.rutalogadmin.data.repository.PagosRepository
+import com.example.rutalogadmin.data.repository.RiesgoRepository
 import com.example.rutalogadmin.data.repository.RutaRepository
 import com.example.rutalogadmin.data.repository.SyncRepository
 import com.example.rutalogadmin.util.ConnectivityObserver
@@ -37,6 +40,9 @@ class AppContainer(context: Context) {
     val envioRepository = EnvioRepository(db)
     val rutaRepository = RutaRepository(db)
     val syncRepository = SyncRepository(db, api)
+    val operacionRepository = OperacionRepository(db, api)
+    val pagosRepository = PagosRepository(api)
+    val riesgoRepository = RiesgoRepository(api)
 
     /** RF13: deja programado el envío de la cola para cuando haya conexión, aunque la app se cierre. */
     fun programarSincronizacion() {

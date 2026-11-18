@@ -57,13 +57,32 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
+    /** Recibe el ID token de Firebase tras elegir la cuenta de Google y pide la sesión a la API. */
+    fun loginConGoogle(idTokenFirebase: String, onExito: () -> Unit) {
+        viewModelScope.launch {
+            _estado.update { it.copy(cargando = true, error = null) }
+            when (val resultado = authRepository.loginConGoogle(idTokenFirebase)) {
+                is ResultadoLogin.Exito -> {
+                    _estado.update { it.copy(cargando = false, usuario = resultado.usuario) }
+                    onExito()
+                }
+
+                is ResultadoLogin.Error -> fallar(resultado.mensaje)
+            }
+        }
+    }
+
+    /** Error del lado de Google (sin cuentas en el teléfono, sin conexión...). */
+    fun avisarError(mensaje: String) = fallar(mensaje)
+
     fun limpiarMensajes() {
         _estado.update { it.copy(error = null) }
     }
 
-    fun cerrarSesion() {
+    /** [motivo] se muestra en el login (por ejemplo, cuando la sesión venció). */
+    fun cerrarSesion(motivo: String? = null) {
         authRepository.cerrarSesion()
-        _estado.value = AuthUiState(comprobandoSesion = false)
+        _estado.value = AuthUiState(comprobandoSesion = false, error = motivo)
     }
 
     private fun fallar(mensaje: String) {

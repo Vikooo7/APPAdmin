@@ -1,5 +1,6 @@
 package com.example.rutalogadmin.data.local.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -7,7 +8,8 @@ import androidx.room.PrimaryKey
 /**
  * Tabla "envios": los campos del caso (id, numeroGuia, ruta, pesoKg, costoEnvio, estado,
  * transportistaAsignado) más los que exige la sincronización: identificador remoto, UUID,
- * versión y estado de sincronización.
+ * versión y estado de sincronización. Desde la versión 3, también el courier asignado,
+ * el destinatario, el monto contraentrega y los intentos fallidos (proyecto final).
  *
  * El operador no crea envíos: todos llegan de la API, por eso siempre tienen idRemoto.
  */
@@ -17,7 +19,8 @@ import androidx.room.PrimaryKey
         Index(value = ["idRemoto"], unique = true),
         Index(value = ["uuid"], unique = true),
         Index("estado"),
-        Index("ruta")
+        Index("ruta"),
+        Index("courierId")
     ]
 )
 data class EnvioEntity(
@@ -37,5 +40,14 @@ data class EnvioEntity(
     /** Nombre de EstadoSincronizacion: PENDIENTE, ENVIANDO, SINCRONIZADO o ERROR. */
     val estadoSync: String,
     /** Motivo del rechazo del servidor, si lo hubo. */
-    val mensajeError: String? = null
+    val mensajeError: String? = null,
+    /** Id del courier en el servidor (tabla couriers). */
+    val courierId: Int? = null,
+    val destinatarioNombre: String? = null,
+    val destinatarioTelefono: String? = null,
+    val destinatarioDireccion: String? = null,
+    @ColumnInfo(defaultValue = "0") val montoContraentrega: Double = 0.0,
+    @ColumnInfo(defaultValue = "0") val intentos: Int = 0,
+    /** RF-R02: NO_REQUERIDO (envíos anteriores), POR_PAGAR o PAGADO (confirmado por Banco Andino). */
+    @ColumnInfo(defaultValue = "NO_REQUERIDO") val pagoEstado: String = "NO_REQUERIDO"
 )

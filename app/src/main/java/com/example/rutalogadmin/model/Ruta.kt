@@ -4,7 +4,9 @@ package com.example.rutalogadmin.model
 data class Ruta(
     val id: Int,
     val nombre: String,
-    val tiempoEstimado: Int
+    val tiempoEstimado: Int,
+    /** Lima y Callao, Norte, Centro, Sur u Oriente (la asigna el servidor). */
+    val zona: String? = null
 )
 
 /**

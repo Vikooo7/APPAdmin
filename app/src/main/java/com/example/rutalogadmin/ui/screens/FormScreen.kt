@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -40,9 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.rutalogadmin.model.CatalogoRutas
+import com.example.rutalogadmin.model.CourierConCarga
 import com.example.rutalogadmin.model.Envio
 import com.example.rutalogadmin.model.EstadoEnvio
-import com.example.rutalogadmin.model.Transportistas
 import com.example.rutalogadmin.model.estaCerrado
 import com.example.rutalogadmin.model.estadoEnvio
 import com.example.rutalogadmin.ui.components.AppScaffold
@@ -54,17 +56,19 @@ import com.example.rutalogadmin.ui.components.color
 import com.example.rutalogadmin.ui.components.icono
 
 /**
- * Formulario para editar el envío: RF08 (actualizar estado) y RF09 (asignar transportista).
- * Al guardar, vuelve al detalle, que ya muestra lo guardado en Room.
+ * Formulario para editar el envío: RF08 (actualizar estado) y RF09 (asignar courier).
+ * Funciona sin conexión: el cambio queda en la cola. Al guardar, vuelve al detalle.
  */
 @Composable
 fun FormScreen(
     envio: Envio?,
+    couriers: List<CourierConCarga>,
     onVolver: () -> Unit,
+    onVerFallidas: () -> Unit,
     onGuardar: (
         envio: Envio,
         estado: EstadoEnvio,
-        transportista: String?,
+        courier: CourierConCarga?,
         onError: (String) -> Unit,
         onGuardado: () -> Unit
     ) -> Unit
@@ -79,11 +83,18 @@ fun FormScreen(
 
         val estadoActual = envio.estadoEnvio
         var estadoElegido by remember(envio.estado) { mutableStateOf(estadoActual) }
-        var transportista by remember(envio.transportistaAsignado) { mutableStateOf(envio.transportistaAsignado) }
+        // null = se mantiene el courier (o transportista) que ya tiene el envío.
+        var courierElegido by remember(envio.courierId) { mutableStateOf<CourierConCarga?>(null) }
         var error by remember { mutableStateOf<String?>(null) }
         var guardando by remember { mutableStateOf(false) }
 
-        val hayCambios = estadoElegido != estadoActual || transportista != envio.transportistaAsignado
+        val zonaEnvio = CatalogoRutas.porNombre(envio.ruta)?.zona
+        // Primero los couriers de la zona del envío; dentro de cada grupo, los que tienen más cupo.
+        val opciones = remember(couriers, zonaEnvio) {
+            couriers.sortedWith(compareBy<CourierConCarga>({ it.courier.zona != zonaEnvio }, { -it.disponibles }))
+        }
+        val hayCambios = estadoElegido != estadoActual ||
+            (courierElegido != null && courierElegido?.courier?.id != envio.courierId)
 
         Column(
             modifier = Modifier
@@ -99,7 +110,24 @@ fun FormScreen(
             )
 
             if (envio.estaCerrado) {
-                MensajeInfo("Envío entregado: la operación está cerrada y ya no se puede modificar.")
+                MensajeInfo(
+                    if (estadoActual == EstadoEnvio.DEVUELTO) {
+                        "Envío devuelto al remitente tras ${EstadoEnvio.MAX_INTENTOS} intentos fallidos: ya no se puede modificar."
+                    } else {
+                        "Envío entregado: la operación está cerrada y ya no se puede modificar."
+                    }
+                )
+                return@Column
+            }
+            if (estadoActual == EstadoEnvio.FALLIDO) {
+                MensajeInfo(
+                    "La entrega falló (intento ${envio.intentos} de ${EstadoEnvio.MAX_INTENTOS}). " +
+                        "Reprográmala antes de cambiar el estado."
+                )
+                Button(onClick = onVerFallidas, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.EventRepeat, contentDescription = null)
+                    Text("  Ir a Entregas fallidas")
+                }
                 return@Column
             }
 
@@ -122,23 +150,41 @@ fun FormScreen(
             }
 
             // RF09
-            TarjetaSeccion(titulo = "Transportista", icono = Icons.Default.DirectionsCar) {
-                SelectorDesplegable(
-                    etiqueta = "Transportista asignado",
-                    opciones = Transportistas.lista,
-                    seleccion = transportista,
-                    texto = { it ?: "Selecciona un transportista" },
+            TarjetaSeccion(titulo = "Courier", icono = Icons.Default.DirectionsCar) {
+                SelectorDesplegable<CourierConCarga?>(
+                    etiqueta = "Courier asignado",
+                    opciones = opciones,
+                    seleccion = courierElegido,
+                    texto = { elegido ->
+                        elegido?.courier?.etiqueta ?: envio.transportistaAsignado ?: "Selecciona un courier"
+                    },
+                    textoOpcion = { opcion ->
+                        opcion?.let { "${it.courier.etiqueta} · ${it.courier.zona} · ${it.activos}/${it.courier.capacidad}" }
+                            .orEmpty()
+                    },
                     onSeleccion = {
-                        transportista = it
+                        courierElegido = it
                         error = null
                     },
                     icono = Icons.Default.DirectionsCar,
                     modifier = Modifier.fillMaxWidth()
                 )
+                val mostrado = courierElegido ?: couriers.firstOrNull { it.courier.id == envio.courierId }
                 Text(
-                    text = "Obligatorio para cualquier estado distinto de pendiente de recojo.",
+                    text = when {
+                        couriers.isEmpty() -> "Sincroniza para descargar la lista de couriers."
+                        mostrado != null ->
+                            "Zona ${mostrado.courier.zona} · ${mostrado.activos} de ${mostrado.courier.capacidad} paradas" +
+                                if (mostrado.lleno) " (sin cupo)" else ""
+                        envio.transportistaAsignado != null -> "Transportista del parcial: elige un courier para reasignarlo."
+                        else -> "Obligatorio para cualquier estado distinto de pendiente de recojo."
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (mostrado?.lleno == true) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
 
@@ -153,7 +199,7 @@ fun FormScreen(
                     onGuardar(
                         envio,
                         estadoElegido,
-                        transportista,
+                        courierElegido,
                         {
                             error = it
                             guardando = false

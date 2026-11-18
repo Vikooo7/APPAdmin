@@ -13,6 +13,12 @@ data class UsuarioDto(
     val rol: String
 )
 
+/** Ingreso con Google: ID token de Firebase y la app desde la que se entra. */
+data class SocialRequest(
+    val idToken: String,
+    val app: String
+)
+
 data class LoginResponse(
     val token: String,
     val usuario: UsuarioDto

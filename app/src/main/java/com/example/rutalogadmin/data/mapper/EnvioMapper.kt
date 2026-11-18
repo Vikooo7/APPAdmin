@@ -21,7 +21,14 @@ fun EnvioEntity.aModelo(): Envio = Envio(
     transportistaAsignado = transportistaAsignado,
     version = version,
     estadoSync = EstadoSincronizacion.desde(estadoSync),
-    mensajeError = mensajeError
+    mensajeError = mensajeError,
+    courierId = courierId,
+    destinatarioNombre = destinatarioNombre,
+    destinatarioTelefono = destinatarioTelefono,
+    destinatarioDireccion = destinatarioDireccion,
+    montoContraentrega = montoContraentrega,
+    intentos = intentos,
+    pagoEstado = pagoEstado
 )
 
 fun UsuarioEntity.aModelo(): Usuario = Usuario(id = id, nombre = nombre, correo = correo, rol = rol)
@@ -42,7 +49,14 @@ fun EnvioDto.aEntidad(idLocal: Int = 0): EnvioEntity = EnvioEntity(
     transportistaAsignado = transportistaAsignado,
     version = version,
     estadoSync = EstadoSincronizacion.SINCRONIZADO.name,
-    mensajeError = null
+    mensajeError = null,
+    courierId = courierId,
+    destinatarioNombre = destinatarioNombre,
+    destinatarioTelefono = destinatarioTelefono,
+    destinatarioDireccion = destinatarioDireccion,
+    montoContraentrega = montoContraentrega ?: 0.0,
+    intentos = intentos ?: 0,
+    pagoEstado = pagoEstado ?: "NO_REQUERIDO"
 )
 
 fun UsuarioDto.aEntidad(): UsuarioEntity = UsuarioEntity(id = id, nombre = nombre, correo = correo, rol = rol)

@@ -26,7 +26,7 @@ interface RutaDao {
         SELECT r.id, r.nombre, r.tiempoEstimado,
             SUM(CASE WHEN e.estado = 'recogido' THEN 1 ELSE 0 END) AS recogidos,
             SUM(CASE WHEN e.estado = 'en_transito' THEN 1 ELSE 0 END) AS enTransito,
-            SUM(CASE WHEN e.estado = 'en_reparto' THEN 1 ELSE 0 END) AS enReparto,
+            SUM(CASE WHEN e.estado IN ('en_reparto', 'fallido', 'reprogramado') THEN 1 ELSE 0 END) AS enReparto,
             SUM(CASE WHEN e.estado = 'pendiente' THEN 1 ELSE 0 END) AS pendientes,
             COUNT(e.id) AS totalEnvios
         FROM rutas r

@@ -42,6 +42,9 @@ interface EnvioDao {
     @Query("SELECT * FROM envios WHERE id = :id")
     suspend fun porId(id: Int): EnvioEntity?
 
+    @Query("SELECT * FROM envios WHERE idRemoto = :idRemoto")
+    suspend fun porIdRemoto(idRemoto: Int): EnvioEntity?
+
     @Query("SELECT * FROM envios")
     suspend fun todos(): List<EnvioEntity>
 

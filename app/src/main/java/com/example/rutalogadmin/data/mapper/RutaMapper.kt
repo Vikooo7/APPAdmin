@@ -5,7 +5,7 @@ import com.example.rutalogadmin.data.remote.dto.RutaDto
 import com.example.rutalogadmin.model.Ruta
 
 /** Room → modelo de la app. */
-fun RutaEntity.aModelo(): Ruta = Ruta(id = id, nombre = nombre, tiempoEstimado = tiempoEstimado)
+fun RutaEntity.aModelo(): Ruta = Ruta(id = id, nombre = nombre, tiempoEstimado = tiempoEstimado, zona = zona)
 
 /** API → Room. */
-fun RutaDto.aEntidad(): RutaEntity = RutaEntity(id = id, nombre = nombre, tiempoEstimado = tiempoEstimado)
+fun RutaDto.aEntidad(): RutaEntity = RutaEntity(id = id, nombre = nombre, tiempoEstimado = tiempoEstimado, zona = zona)

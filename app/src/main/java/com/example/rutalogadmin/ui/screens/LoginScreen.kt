@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.rutalogadmin.ui.components.AppLogo
+import com.example.rutalogadmin.ui.components.BotonGoogle
 import com.example.rutalogadmin.ui.components.InputField
 import com.example.rutalogadmin.ui.components.MensajeError
 import com.example.rutalogadmin.ui.theme.AzulRuta
@@ -62,6 +63,8 @@ import com.example.rutalogadmin.viewmodel.AuthUiState
 fun LoginScreen(
     estado: AuthUiState,
     onLogin: (correo: String, clave: String) -> Unit,
+    onGoogle: (idTokenFirebase: String) -> Unit,
+    onErrorGoogle: (String) -> Unit,
     onLimpiarMensajes: () -> Unit
 ) {
     var correo by rememberSaveable { mutableStateOf("") }
@@ -199,6 +202,12 @@ fun LoginScreen(
                     ) {
                         Text("Usar cuenta demo")
                     }
+
+                    BotonGoogle(
+                        habilitado = !estado.cargando,
+                        onToken = onGoogle,
+                        onError = onErrorGoogle
+                    )
                 }
             }
 

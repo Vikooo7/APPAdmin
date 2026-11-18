@@ -5,7 +5,8 @@ data class RutaDto(
     val id: Int,
     val nombre: String,
     /** Horas de viaje. */
-    val tiempoEstimado: Int
+    val tiempoEstimado: Int,
+    val zona: String? = null
 )
 
 data class RutasResponse(

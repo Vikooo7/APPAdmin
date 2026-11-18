@@ -19,7 +19,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AssignmentInd
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.TaskAlt
@@ -40,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.example.rutalogadmin.model.Envio
 import com.example.rutalogadmin.model.EstadoEnvio
 import com.example.rutalogadmin.model.estadoEnvio
+import com.example.rutalogadmin.model.sinCourier
 import com.example.rutalogadmin.ui.components.AppScaffold
 import com.example.rutalogadmin.ui.components.BannerDegradado
 import com.example.rutalogadmin.ui.components.EstadoVacio
@@ -52,21 +58,32 @@ import com.example.rutalogadmin.ui.components.icono
 @Composable
 fun HomeScreen(
     nombreUsuario: String,
+    rol: String,
     envios: List<Envio>,
     rutasActivas: Int,
     onVerEstado: (EstadoEnvio?) -> Unit,
     onVerRutas: () -> Unit,
+    onAsignar: () -> Unit,
+    onFallidas: () -> Unit,
+    esAdministrador: Boolean,
+    onLiquidaciones: () -> Unit,
+    onCredito: () -> Unit,
+    /** Entregas de riesgo alto según ML-01 (null si aún no se calculó). */
+    riesgoAlto: Int?,
+    onRiesgo: () -> Unit,
     onEnvio: (Envio) -> Unit,
     onPestana: (PestanaOperador) -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     val porEstado = envios.groupingBy { it.estadoEnvio }.eachCount()
     val enCurso = envios.count { it.estadoEnvio.enCurso }
-    val porAsignar = envios.filter { it.transportistaAsignado == null && it.estadoEnvio != EstadoEnvio.ENTREGADO }
+    val porAsignar = envios.filter { it.sinCourier }
+    val porPagar = envios.count { it.pagoEstado == "POR_PAGAR" }
+    val fallidas = porEstado[EstadoEnvio.FALLIDO] ?: 0
 
     AppScaffold(
         titulo = "Panel de operaciones",
-        subtitulo = "Operador · $nombreUsuario",
+        subtitulo = "$rol · $nombreUsuario",
         pestana = PestanaOperador.INICIO,
         onPestana = onPestana,
         onCerrarSesion = onCerrarSesion
@@ -121,6 +138,65 @@ fun HomeScreen(
             }
 
             item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccionRapida(
+                        titulo = "Asignar",
+                        subtitulo = "${porAsignar.size} sin courier",
+                        icono = Icons.Default.AssignmentInd,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        onClick = onAsignar,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AccionRapida(
+                        titulo = "Entregas fallidas",
+                        subtitulo = "$fallidas por reprogramar",
+                        icono = Icons.Default.ReportProblem,
+                        color = MaterialTheme.colorScheme.error,
+                        onClick = onFallidas,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Fase BI y ML: ML-01 riesgo de entrega fallida (RF-O02).
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccionRapida(
+                        titulo = "Riesgo de falla",
+                        subtitulo = riesgoAlto?.let { "$it con riesgo alto · ML-01" } ?: "Avisa antes al destinatario · ML-01",
+                        icono = Icons.Default.Insights,
+                        color = MaterialTheme.colorScheme.error,
+                        onClick = onRiesgo,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Fase de pagos con Banco Andino.
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccionRapida(
+                        titulo = "Liquidaciones",
+                        subtitulo = if (porPagar > 0) "$porPagar envío(s) por pagar" else "Contraentrega a remitentes",
+                        icono = Icons.Default.Payments,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = onLiquidaciones,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (esAdministrador) {
+                        AccionRapida(
+                            titulo = "Mi crédito",
+                            subtitulo = "Furgoneta con Banco Andino",
+                            icono = Icons.Default.AccountBalance,
+                            color = MaterialTheme.colorScheme.secondary,
+                            onClick = onCredito,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -146,7 +222,7 @@ fun HomeScreen(
 
             item {
                 Text(
-                    text = "Por asignar transportista",
+                    text = "Por asignar courier",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -157,7 +233,7 @@ fun HomeScreen(
                     EstadoVacio(
                         icono = Icons.Default.TaskAlt,
                         titulo = "Todo asignado",
-                        mensaje = "Todos los envíos en curso tienen un transportista."
+                        mensaje = "Todos los envíos abiertos tienen un courier."
                     )
                 }
             }

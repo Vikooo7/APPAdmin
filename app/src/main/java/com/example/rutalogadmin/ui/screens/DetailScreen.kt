@@ -16,7 +16,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Place
@@ -41,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.rutalogadmin.model.CatalogoRutas
 import com.example.rutalogadmin.model.Envio
+import com.example.rutalogadmin.model.EstadoEnvio
 import com.example.rutalogadmin.model.EstadoSincronizacion
 import com.example.rutalogadmin.model.Ruta
 import com.example.rutalogadmin.model.estaCerrado
@@ -59,7 +66,7 @@ import com.example.rutalogadmin.ui.components.formatoTiempo
 
 /**
  * Detalle del envío: estado, línea de tiempo y datos. Desde aquí el operador abre
- * el formulario para actualizar el estado (RF08) y el transportista (RF09).
+ * el formulario para actualizar el estado (RF08) y el courier (RF09), o reprograma una entrega fallida.
  * [ruta] es la fila de la tabla rutas que corresponde al envío (tiempo estimado).
  */
 @Composable
@@ -67,7 +74,8 @@ fun DetailScreen(
     envio: Envio?,
     ruta: Ruta?,
     onVolver: () -> Unit,
-    onActualizar: (Envio) -> Unit
+    onActualizar: (Envio) -> Unit,
+    onVerFallidas: () -> Unit
 ) {
     AppScaffold(titulo = "Detalle del envío", subtitulo = envio?.numeroGuia, onVolver = onVolver) {
         if (envio == null) {
@@ -127,8 +135,23 @@ fun DetailScreen(
             }
 
             item {
-                if (envio.estaCerrado) {
+                if (estado == EstadoEnvio.DEVUELTO) {
+                    MensajeInfo("Devuelto al remitente tras ${EstadoEnvio.MAX_INTENTOS} intentos fallidos: la operación está cerrada.")
+                } else if (envio.estaCerrado) {
                     MensajeInfo("Envío entregado: la operación está cerrada y ya no se puede modificar.")
+                } else if (estado == EstadoEnvio.FALLIDO) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MensajeError(texto = "Entrega fallida: intento ${envio.intentos} de ${EstadoEnvio.MAX_INTENTOS}.")
+                        Button(
+                            onClick = onVerFallidas,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
+                        ) {
+                            Icon(Icons.Default.EventRepeat, contentDescription = null)
+                            Text("  Reprogramar en Entregas fallidas")
+                        }
+                    }
                 } else {
                     Button(
                         onClick = { onActualizar(envio) },
@@ -137,7 +160,7 @@ fun DetailScreen(
                             .height(54.dp)
                     ) {
                         Icon(Icons.Default.SwapHoriz, contentDescription = null)
-                        Text("  Actualizar estado y transportista")
+                        Text("  Actualizar estado y courier")
                     }
                 }
             }
@@ -185,9 +208,32 @@ fun DetailScreen(
                         FilaDato(Icons.Default.Payments, "Costo del envío", formatoSoles(envio.costoEnvio))
                         FilaDato(
                             Icons.Default.DirectionsCar,
-                            "Transportista asignado",
+                            "Courier asignado",
                             envio.transportistaAsignado ?: "Por asignar"
                         )
+                        if (envio.montoContraentrega > 0) {
+                            FilaDato(Icons.Default.QrCode, "Cobrar contraentrega", formatoSoles(envio.montoContraentrega))
+                        }
+                        if (envio.intentos > 0) {
+                            FilaDato(
+                                Icons.Default.ReportProblem,
+                                "Intentos fallidos",
+                                "${envio.intentos} de ${EstadoEnvio.MAX_INTENTOS}"
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Proyecto final: datos de quien recibe. Los envíos del parcial no los tienen.
+            if (envio.destinatarioNombre != null || envio.destinatarioDireccion != null) {
+                item {
+                    TarjetaSeccion(titulo = "Destinatario", icono = Icons.Default.Person) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            envio.destinatarioNombre?.let { FilaDato(Icons.Default.Person, "Nombre", it) }
+                            envio.destinatarioTelefono?.let { FilaDato(Icons.Default.Phone, "Teléfono", it) }
+                            envio.destinatarioDireccion?.let { FilaDato(Icons.Default.Home, "Dirección", it) }
+                        }
                     }
                 }
             }

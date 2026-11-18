@@ -8,6 +8,8 @@ import com.example.rutalogadmin.data.mapper.aModelo
 import com.example.rutalogadmin.data.remote.ResultadoApi
 import com.example.rutalogadmin.data.remote.api.ApiService
 import com.example.rutalogadmin.data.remote.dto.LoginRequest
+import com.example.rutalogadmin.data.remote.dto.LoginResponse
+import com.example.rutalogadmin.data.remote.dto.SocialRequest
 import com.example.rutalogadmin.data.remote.llamarApi
 import com.example.rutalogadmin.model.RolUsuario
 import com.example.rutalogadmin.model.Usuario
@@ -34,11 +36,25 @@ class AuthRepository(
         if (sesion.token == null) null else db.usuarioDao().actual()?.aModelo()
 
     suspend fun login(correo: String, clave: String): ResultadoLogin =
-        when (val resultado = llamarApi { api.login(LoginRequest(correo, clave)) }) {
+        abrirSesion(llamarApi { api.login(LoginRequest(correo, clave)) })
+
+    /** Google (vía Firebase): solo entra si la empresa ya registró ese correo. */
+    suspend fun loginConGoogle(idTokenFirebase: String): ResultadoLogin =
+        abrirSesion(llamarApi { api.loginSocial(SocialRequest(idTokenFirebase, "admin")) })
+
+    private suspend fun abrirSesion(resultado: ResultadoApi<LoginResponse>): ResultadoLogin =
+        when (resultado) {
             is ResultadoApi.Exito -> {
                 val perfil = resultado.valor.usuario
-                if (perfil.rol != RolUsuario.ADMINISTRADOR.valor) {
-                    ResultadoLogin.Error("Esta cuenta no es de operador. Usa la App Cliente.")
+                val rol = RolUsuario.desde(perfil.rol)
+                if (rol !in RolUsuario.deLaAppAdmin) {
+                    ResultadoLogin.Error(
+                        if (rol == RolUsuario.COURIER) {
+                            "Esta cuenta es de courier. Usa la App Courier."
+                        } else {
+                            "Esta cuenta no es de operador. Usa la App Cliente."
+                        }
+                    )
                 } else {
                     db.withTransaction {
                         val anterior = db.usuarioDao().actual()
@@ -46,6 +62,7 @@ class AuthRepository(
                         if (anterior != null && anterior.id != perfil.id) {
                             db.envioDao().borrarTodo()
                             db.rutaDao().borrarTodo()
+                            db.courierDao().borrarTodo()
                             db.operacionPendienteDao().borrarTodo()
                             db.operacionPendienteDao().borrarMetadata()
                         }

@@ -5,7 +5,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Tabla "rutas" del caso: id, nombre y tiempoEstimado (horas de viaje).
+ * Tabla "rutas" del caso: id, nombre y tiempoEstimado (horas de viaje), más la zona.
  * Es de solo lectura: se descarga de la API y el id es el del servidor.
  * "nombre" es el mismo texto que guarda la columna "ruta" de la tabla envios.
  */
@@ -13,5 +13,6 @@ import androidx.room.PrimaryKey
 data class RutaEntity(
     @PrimaryKey val id: Int,
     val nombre: String,
-    val tiempoEstimado: Int
+    val tiempoEstimado: Int,
+    val zona: String? = null
 )

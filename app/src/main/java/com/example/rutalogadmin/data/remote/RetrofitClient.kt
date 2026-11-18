@@ -1,5 +1,7 @@
 package com.example.rutalogadmin.data.remote
 
+import com.example.rutalogadmin.BuildConfig
+
 import com.example.rutalogadmin.data.remote.api.ApiService
 import com.example.rutalogadmin.data.remote.dto.EnvioDto
 import com.example.rutalogadmin.data.remote.dto.ErrorDto
@@ -15,7 +17,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 object RetrofitClient {
 
     /** Dirección pública de la API en Vercel. Es la misma que usa la App Cliente. */
-    const val URL_BASE = "https://app-api-rutalog.vercel.app/"
+    /** Se define al compilar (app/build.gradle.kts, propiedad urlApi); por defecto, la API en Vercel. */
+    val URL_BASE: String = BuildConfig.URL_API
 
     /**
      * @param token devuelve el token de sesión actual, o null si no hay sesión.
