@@ -38,6 +38,11 @@ data class RiesgoResponse(
     val datos: List<RiesgoEntregaDto>
 )
 
+/** ML-03: envíos esperados en una zona y cuántos couriers programar (hasta 30 paradas cada uno). */
+data class ZonaPronosticoDto(val zona: String, val envios: Int, val couriersSugeridos: Int, val couriersRegistrados: Int)
+
+data class PronosticoResponse(val fecha: String, val modelo: String, val total: Int, val zonas: List<ZonaPronosticoDto>)
+
 /** UUID de la operación: si se reintenta, el servidor no envía dos SMS (RF15). */
 data class ConfirmacionRequest(val uuidOperacion: String)
 

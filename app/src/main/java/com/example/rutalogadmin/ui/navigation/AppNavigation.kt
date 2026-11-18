@@ -41,6 +41,7 @@ import com.example.rutalogadmin.ui.screens.LiquidacionScreen
 import com.example.rutalogadmin.viewmodel.SyncViewModel
 import com.example.rutalogadmin.viewmodel.RiesgoViewModel
 import com.example.rutalogadmin.ui.screens.RiesgoScreen
+import com.example.rutalogadmin.ui.screens.TableroScreen
 import kotlinx.coroutines.flow.flowOf
 
 object Rutas {
@@ -57,6 +58,7 @@ object Rutas {
     const val LIQUIDACIONES = "liquidaciones"
     const val CREDITO = "credito"
     const val RIESGO = "riesgo"
+    const val TABLERO = "tablero"
 
     fun detalle(id: Int) = "detalle/$id"
     fun formulario(id: Int) = "formulario/$id"
@@ -195,6 +197,7 @@ fun AppNavigation(
                     onCredito = { navController.navigate(Rutas.CREDITO) { launchSingleTop = true } },
                     riesgoAlto = riesgo.respuesta?.resumen?.riesgoAlto,
                     onRiesgo = irARiesgo,
+                    onTablero = { navController.navigate(Rutas.TABLERO) { launchSingleTop = true } },
                     onEnvio = { navController.navigate(Rutas.detalle(it.id)) },
                     onPestana = irAPestana,
                     onCerrarSesion = cerrarSesion
@@ -310,8 +313,13 @@ fun AppNavigation(
                 val estado by operacionViewModel.asignacion.collectAsState()
                 val candidatos by operacionViewModel.candidatos.collectAsState()
                 // HU-O01: al abrir Asignación se pide el riesgo para marcar las entregas de riesgo alto.
-                LaunchedEffect(Unit) { riesgoViewModel.cargar() }
+                LaunchedEffect(Unit) {
+                    riesgoViewModel.cargar()
+                    riesgoViewModel.cargarPronostico() // ML-03: cuántos couriers programar
+                }
+                val pronostico by riesgoViewModel.pronostico.collectAsState()
                 AsignacionScreen(
+                    pronostico = pronostico,
                     riesgoAlto = riesgo.altosPorGuia,
                     onVerRiesgo = irARiesgo,
                     estado = estado,
@@ -339,6 +347,17 @@ fun AppNavigation(
                     onSoloAltos = riesgoViewModel::cambiarSoloAltos,
                     onPedir = riesgoViewModel::pedirConfirmacion,
                     onConfirmar = riesgoViewModel::registrarConfirmacion,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
+            // RF-O05 / HU-O03: tablero con comparación semanal.
+            composable(Rutas.TABLERO) {
+                SesionRequerida(hayUsuario = haySesion, onSinSesion = cerrarSesion)
+                val estado by riesgoViewModel.tablero.collectAsState()
+                TableroScreen(
+                    estado = estado,
+                    onCargar = { semana -> riesgoViewModel.cargarTablero(semana) },
                     onVolver = { navController.popBackStack() }
                 )
             }

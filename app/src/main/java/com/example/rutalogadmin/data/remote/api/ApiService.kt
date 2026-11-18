@@ -30,6 +30,8 @@ import retrofit2.http.Query
 import com.example.rutalogadmin.data.remote.dto.ConfirmacionRequest
 import com.example.rutalogadmin.data.remote.dto.ConfirmacionResponse
 import com.example.rutalogadmin.data.remote.dto.RiesgoResponse
+import com.example.rutalogadmin.data.remote.dto.PronosticoResponse
+import com.example.rutalogadmin.data.remote.dto.TableroResponse
 
 /**
  * Endpoints de la API REST de RutaLog (Node.js + Express en Vercel, base de datos en Neon).
@@ -60,11 +62,19 @@ interface ApiService {
     @POST("api/credito/solicitudes")
     suspend fun solicitarCredito(@Body cuerpo: SolicitudCreditoRequest): Response<SolicitudCreditoDto>
 
+    /** RF-O05: indicadores de la semana que contiene [semana] (AAAA-MM-DD) frente a la anterior. */
+    @GET("api/tablero")
+    suspend fun obtenerTablero(@Query("semana") semana: String? = null): Response<TableroResponse>
+
     // ---------- ML-01: riesgo de entrega fallida y aviso previo (RF-O02, HU-O01) ----------
 
     /** [fecha] AAAA-MM-DD; sin fecha, la API usa mañana. */
     @GET("api/ml/riesgo-fallida")
     suspend fun obtenerRiesgo(@Query("fecha") fecha: String? = null): Response<RiesgoResponse>
+
+    /** ML-03: envíos esperados por zona (por defecto mañana) y couriers a programar. */
+    @GET("api/ml/pronostico-volumen")
+    suspend fun obtenerPronostico(@Query("fecha") fecha: String? = null): Response<PronosticoResponse>
 
     /** Envía al destinatario el SMS (simulado) que pide confirmar el horario. */
     @POST("api/envios/{id}/confirmacion")

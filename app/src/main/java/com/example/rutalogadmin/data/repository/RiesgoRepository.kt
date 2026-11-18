@@ -5,6 +5,8 @@ import com.example.rutalogadmin.data.remote.api.ApiService
 import com.example.rutalogadmin.data.remote.dto.ConfirmacionRequest
 import com.example.rutalogadmin.data.remote.dto.ConfirmacionResponse
 import com.example.rutalogadmin.data.remote.dto.RiesgoResponse
+import com.example.rutalogadmin.data.remote.dto.TableroResponse
+import com.example.rutalogadmin.data.remote.dto.PronosticoResponse
 import com.example.rutalogadmin.data.remote.llamarApi
 import java.util.UUID
 
@@ -15,6 +17,11 @@ import java.util.UUID
 class RiesgoRepository(private val api: ApiService) {
 
     suspend fun riesgo(fecha: String? = null): Result<RiesgoResponse> = aResult(llamarApi { api.obtenerRiesgo(fecha) })
+
+    suspend fun pronostico(fecha: String? = null): Result<PronosticoResponse> = aResult(llamarApi { api.obtenerPronostico(fecha) })
+
+    /** RF-O05: el tablero se calcula en el servidor con los datos de todos los couriers. */
+    suspend fun tablero(semana: String? = null): Result<TableroResponse> = aResult(llamarApi { api.obtenerTablero(semana) })
 
     /** [uuid] uno por pedido: si la red falla y se reintenta, el destinatario no recibe dos SMS. */
     suspend fun pedirConfirmacion(envioId: Int, uuid: String = UUID.randomUUID().toString()): Result<ConfirmacionResponse> =
@@ -27,7 +34,7 @@ class RiesgoRepository(private val api: ApiService) {
         is ResultadoApi.Exito -> Result.success(r.valor)
         is ResultadoApi.Rechazo -> Result.failure(Exception(r.mensaje))
         is ResultadoApi.Fallo -> Result.failure(
-            Exception(if (r.sinConexion) "Sin conexión: el riesgo se calcula en el servidor." else r.mensaje)
+            Exception(if (r.sinConexion) "Sin conexión: el riesgo y el tablero se calculan en el servidor." else r.mensaje)
         )
     }
 }

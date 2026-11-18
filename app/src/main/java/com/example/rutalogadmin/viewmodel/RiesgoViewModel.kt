@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.rutalogadmin.data.remote.dto.RiesgoEntregaDto
 import com.example.rutalogadmin.data.remote.dto.RiesgoResponse
+import com.example.rutalogadmin.data.remote.dto.TableroResponse
+import com.example.rutalogadmin.data.remote.dto.PronosticoResponse
 import com.example.rutalogadmin.data.repository.RiesgoRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,11 +34,41 @@ data class RiesgoUiState(
         get() = respuesta?.datos.orEmpty().filter { it.riesgoAlto }.associateBy { it.envio.numeroGuia }
 }
 
-/** ML-01 en la App Admin: lista de riesgo y aviso previo al destinatario (RF-O02, HU-O01). */
+data class TableroUiState(
+    val cargando: Boolean = false,
+    val tablero: TableroResponse? = null,
+    val error: String? = null
+)
+
+/**
+ * Fase BI y ML en la App Admin: lista de riesgo y aviso previo al destinatario (ML-01, RF-O02, HU-O01)
+ * y tablero de la operación con comparación semanal (RF-O05, HU-O03).
+ */
 class RiesgoViewModel(private val repositorio: RiesgoRepository) : ViewModel() {
 
     private val _estado = MutableStateFlow(RiesgoUiState())
     val estado: StateFlow<RiesgoUiState> = _estado.asStateFlow()
+
+    private val _tablero = MutableStateFlow(TableroUiState())
+    val tablero: StateFlow<TableroUiState> = _tablero.asStateFlow()
+
+    /** ML-03: pronóstico de mañana para Asignar envíos. Si falla, simplemente no se muestra. */
+    private val _pronostico = MutableStateFlow<PronosticoResponse?>(null)
+    val pronostico: StateFlow<PronosticoResponse?> = _pronostico.asStateFlow()
+
+    fun cargarPronostico() {
+        viewModelScope.launch { repositorio.pronostico().onSuccess { p -> _pronostico.value = p } }
+    }
+
+    /** [semana]: cualquier fecha AAAA-MM-DD de la semana; null = la semana actual. */
+    fun cargarTablero(semana: String? = _tablero.value.tablero?.semana?.inicio) {
+        viewModelScope.launch {
+            _tablero.update { it.copy(cargando = true, error = null) }
+            repositorio.tablero(semana)
+                .onSuccess { t -> _tablero.update { it.copy(cargando = false, tablero = t) } }
+                .onFailure { e -> _tablero.update { it.copy(cargando = false, error = e.message) } }
+        }
+    }
 
     fun cargar() {
         viewModelScope.launch {

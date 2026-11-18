@@ -41,7 +41,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.rutalogadmin.data.remote.dto.PronosticoResponse
 import com.example.rutalogadmin.data.remote.dto.RiesgoEntregaDto
+import com.example.rutalogadmin.data.remote.dto.ZonaPronosticoDto
 import com.example.rutalogadmin.model.CatalogoRutas
 import com.example.rutalogadmin.model.ReglasRiesgo
 import com.example.rutalogadmin.model.CourierConCarga
@@ -76,7 +78,9 @@ fun AsignacionScreen(
     onVolver: () -> Unit,
     /** ML-01: entregas de riesgo alto por número de guía (RF-O02). */
     riesgoAlto: Map<String, RiesgoEntregaDto> = emptyMap(),
-    onVerRiesgo: () -> Unit = {}
+    onVerRiesgo: () -> Unit = {},
+    /** ML-03: envíos esperados mañana por zona y couriers a programar. */
+    pronostico: PronosticoResponse? = null
 ) {
     val snackbar = remember { SnackbarHostState() }
     val enLinea = LocalEnLinea.current
@@ -149,6 +153,11 @@ fun AsignacionScreen(
                             TextButton(onClick = onLimpiarSeleccion) { Text("Desmarcar") }
                         }
                     }
+                }
+
+                pronostico?.let { p ->
+                    val zonas = p.zonas.filter { estado.zona == null || it.zona == estado.zona }
+                    if (zonas.isNotEmpty()) item { PronosticoManana(p.fecha, zonas) }
                 }
 
                 val conRiesgo = envios.count { it.numeroGuia in riesgoAlto }
@@ -251,6 +260,34 @@ private fun FilaAsignable(envio: Envio, marcado: Boolean, habilitado: Boolean, r
             Spacer(modifier = Modifier.width(8.dp))
             EstadoBadge(estado = envio.estadoEnvio)
             Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+}
+
+/** ML-03 (uso en la ficha: "Cuántos couriers programar"). Avisa si faltan couriers en una zona. */
+@Composable
+private fun PronosticoManana(fecha: String, zonas: List<ZonaPronosticoDto>) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "Pronóstico para el ${ReglasRiesgo.textoFecha(fecha)} (ML-03)",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            zonas.forEach { z ->
+                val faltan = z.couriersSugeridos > z.couriersRegistrados
+                Text(
+                    text = "${z.zona}: ~${z.envios} envíos → ${z.couriersSugeridos} courier(s)" +
+                        if (faltan) " · solo hay ${z.couriersRegistrados}" else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (faltan) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer,
+                    fontWeight = if (faltan) FontWeight.SemiBold else FontWeight.Normal
+                )
+            }
         }
     }
 }

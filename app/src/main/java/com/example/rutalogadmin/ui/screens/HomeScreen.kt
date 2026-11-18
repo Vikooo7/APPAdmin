@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AssignmentInd
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Inventory
@@ -71,6 +72,7 @@ fun HomeScreen(
     /** Entregas de riesgo alto según ML-01 (null si aún no se calculó). */
     riesgoAlto: Int?,
     onRiesgo: () -> Unit,
+    onTablero: () -> Unit,
     onEnvio: (Envio) -> Unit,
     onPestana: (PestanaOperador) -> Unit,
     onCerrarSesion: () -> Unit
@@ -167,6 +169,14 @@ fun HomeScreen(
                         icono = Icons.Default.Insights,
                         color = MaterialTheme.colorScheme.error,
                         onClick = onRiesgo,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AccionRapida(
+                        titulo = "Tablero",
+                        subtitulo = "Indicadores vs semana anterior",
+                        icono = Icons.Default.QueryStats,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = onTablero,
                         modifier = Modifier.weight(1f)
                     )
                 }
