@@ -191,7 +191,13 @@ private fun FilaRiesgo(
                     Text(nivel.etiqueta, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                 }
             }
-            LinearProgressIndicator(progress = { e.probabilidad.toFloat() }, color = color, modifier = Modifier.fillMaxWidth())
+            // El fondo de la barra en el mismo color, tenue: con 7 % debe verse casi vacía, no llena de rojo.
+            LinearProgressIndicator(
+                progress = { e.probabilidad.toFloat() },
+                color = color,
+                trackColor = color.copy(alpha = 0.15f),
+                modifier = Modifier.fillMaxWidth()
+            )
             Text(
                 text = buildString {
                     append(e.courier ?: "Sin courier")

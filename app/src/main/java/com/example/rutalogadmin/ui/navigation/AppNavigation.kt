@@ -116,6 +116,7 @@ fun AppNavigation(
     val salir: (String?) -> Unit = { motivo ->
         authViewModel.cerrarSesion(motivo)
         envioViewModel.limpiarFiltros()
+        riesgoViewModel.limpiar()
         navController.navigate(Rutas.LOGIN) {
             popUpTo(navController.graph.id) { inclusive = true }
         }

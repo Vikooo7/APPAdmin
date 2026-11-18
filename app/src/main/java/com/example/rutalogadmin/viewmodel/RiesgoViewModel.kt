@@ -76,7 +76,10 @@ class RiesgoViewModel(private val repositorio: RiesgoRepository) : ViewModel() {
         viewModelScope.launch {
             _estado.update { it.copy(cargando = true) }
             repositorio.riesgo()
-                .onSuccess { r -> _estado.update { it.copy(cargando = false, respuesta = r) } }
+                // Un error anterior (por ejemplo, de una sesión que ya venció) no debe quedar en pantalla tras cargar bien.
+                .onSuccess { r ->
+                    _estado.update { it.copy(cargando = false, respuesta = r, mensaje = if (it.mensajeEsError) null else it.mensaje) }
+                }
                 .onFailure { e -> _estado.update { it.copy(cargando = false, mensaje = e.message, mensajeEsError = true) } }
         }
     }
@@ -113,6 +116,13 @@ class RiesgoViewModel(private val repositorio: RiesgoRepository) : ViewModel() {
     }
 
     fun mensajeMostrado() = _estado.update { it.copy(mensaje = null) }
+
+    /** Al cerrar sesión: no se muestran datos ni errores de la sesión anterior. */
+    fun limpiar() {
+        _estado.value = RiesgoUiState()
+        _tablero.value = TableroUiState()
+        _pronostico.value = null
+    }
 
     companion object {
         fun factory(repositorio: RiesgoRepository): ViewModelProvider.Factory = viewModelFactory {
