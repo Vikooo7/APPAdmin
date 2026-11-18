@@ -8,6 +8,7 @@ import com.example.rutalogadmin.data.remote.dto.ResumenRiesgoDto
 import com.example.rutalogadmin.data.remote.dto.RiesgoEntregaDto
 import com.example.rutalogadmin.data.remote.dto.RiesgoResponse
 import com.example.rutalogadmin.model.AccionConfirmacion
+import com.example.rutalogadmin.model.NivelRiesgo
 import com.example.rutalogadmin.model.ReglasRiesgo
 import com.example.rutalogadmin.viewmodel.RiesgoUiState
 import org.junit.Assert.assertEquals
@@ -29,6 +30,28 @@ class ReglasRiesgoTest {
         assertEquals(AccionConfirmacion.REGISTRAR_RESPUESTA, ReglasRiesgo.accion(conf("PEDIDA")))
         assertEquals(AccionConfirmacion.NINGUNA, ReglasRiesgo.accion(conf("CONFIRMADA")))
         assertEquals(AccionConfirmacion.SIN_TELEFONO, ReglasRiesgo.accion(conf(null, sinTelefono = true)))
+    }
+
+    @Test
+    fun `niveles de la ficha y su accion`() {
+        val medio = entrega("RLP-3", 0.08, false).copy(nivel = "medio")
+        assertEquals(NivelRiesgo.MEDIO, ReglasRiesgo.nivel(medio))
+        assertEquals(AccionConfirmacion.AVISO_DIA, ReglasRiesgo.accion(medio))
+        assertEquals(
+            AccionConfirmacion.AVISO_ENVIADO,
+            ReglasRiesgo.accion(medio.copy(confirmacion = conf(null).copy(avisoDiaEn = "2026-11-19T13:00:00Z")))
+        )
+        assertEquals(AccionConfirmacion.SIN_ACCION, ReglasRiesgo.accion(entrega("RLP-4", 0.02, false).copy(nivel = "bajo")))
+        // Alto: el flujo de confirmación del horario.
+        assertEquals(AccionConfirmacion.PEDIR, ReglasRiesgo.accion(entrega("RLP-5", 0.6, true).copy(nivel = "alto")))
+        // Sin "nivel" (API anterior) se deduce de riesgoAlto.
+        assertEquals(NivelRiesgo.ALTO, ReglasRiesgo.nivel(entrega("RLP-6", 0.6, true)))
+        // "Solo alto y medio" deja fuera solo los bajos.
+        val estado = RiesgoUiState(
+            respuesta = RiesgoResponse("2026-11-19", ModeloRiesgoDto("ML-01", 0.11, 0.055), ResumenRiesgoDto(2, 0, 0, 1),
+                listOf(medio, entrega("RLP-4", 0.02, false).copy(nivel = "bajo")))
+        )
+        assertEquals(listOf("RLP-3"), estado.visibles.map { it.envio.numeroGuia })
     }
 
     @Test

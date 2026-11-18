@@ -5,17 +5,27 @@ package com.example.rutalogadmin.data.remote.dto
 data class ModeloRiesgoDto(
     val nombre: String,
     /** Probabilidad desde la que una entrega es "riesgo alto" (≈ 0.11). */
-    val umbralRiesgoAlto: Double
+    val umbralRiesgoAlto: Double,
+    /** Desde aquí es "riesgo medio": la mitad del alto, como en la ficha (0.25 = mitad de 0.50). */
+    val umbralRiesgoMedio: Double? = null
 )
 
-data class ResumenRiesgoDto(val entregas: Int, val riesgoAlto: Int, val confirmacionPedida: Int)
+data class ResumenRiesgoDto(
+    val entregas: Int,
+    val riesgoAlto: Int,
+    val confirmacionPedida: Int,
+    val riesgoMedio: Int = 0,
+    val avisoDiaEnviado: Int = 0
+)
 
 data class ConfirmacionDto(
     /** null (no se pidió), PEDIDA o CONFIRMADA. */
     val estado: String?,
     val pedidaEn: String?,
     val confirmadaEn: String?,
-    val sinTelefono: Boolean
+    val sinTelefono: Boolean,
+    /** Riesgo medio: cuándo se envió el aviso del día (null si aún no). */
+    val avisoDiaEn: String? = null
 )
 
 data class RiesgoEntregaDto(
@@ -28,7 +38,9 @@ data class RiesgoEntregaDto(
     val riesgoAlto: Boolean,
     /** Hasta 3 razones que más suben el riesgo, en palabras. */
     val factores: List<String>,
-    val confirmacion: ConfirmacionDto
+    val confirmacion: ConfirmacionDto,
+    /** "alto", "medio" o "bajo" (niveles de la ficha). */
+    val nivel: String? = null
 )
 
 data class RiesgoResponse(

@@ -80,6 +80,10 @@ interface ApiService {
     @POST("api/envios/{id}/confirmacion")
     suspend fun pedirConfirmacion(@Path("id") id: Int, @Body cuerpo: ConfirmacionRequest): Response<ConfirmacionResponse>
 
+    /** Riesgo medio: aviso por notificación el mismo día (SMS simulado). */
+    @POST("api/envios/{id}/aviso-dia")
+    suspend fun enviarAvisoDia(@Path("id") id: Int, @Body cuerpo: ConfirmacionRequest): Response<ConfirmacionResponse>
+
     /** El destinatario respondió "1": habrá alguien para recibir. */
     @POST("api/envios/{id}/confirmacion/confirmar")
     suspend fun registrarConfirmacion(@Path("id") id: Int, @Body cuerpo: ConfirmacionRequest): Response<ConfirmacionResponse>

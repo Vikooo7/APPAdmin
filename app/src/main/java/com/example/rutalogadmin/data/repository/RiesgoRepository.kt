@@ -27,6 +27,9 @@ class RiesgoRepository(private val api: ApiService) {
     suspend fun pedirConfirmacion(envioId: Int, uuid: String = UUID.randomUUID().toString()): Result<ConfirmacionResponse> =
         aResult(llamarApi { api.pedirConfirmacion(envioId, ConfirmacionRequest(uuid)) })
 
+    suspend fun avisoDia(envioId: Int, uuid: String = UUID.randomUUID().toString()): Result<ConfirmacionResponse> =
+        aResult(llamarApi { api.enviarAvisoDia(envioId, ConfirmacionRequest(uuid)) })
+
     suspend fun registrarConfirmacion(envioId: Int, uuid: String = UUID.randomUUID().toString()): Result<ConfirmacionResponse> =
         aResult(llamarApi { api.registrarConfirmacion(envioId, ConfirmacionRequest(uuid)) })
 

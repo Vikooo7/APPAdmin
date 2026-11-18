@@ -347,6 +347,7 @@ fun AppNavigation(
                     onSoloAltos = riesgoViewModel::cambiarSoloAltos,
                     onPedir = riesgoViewModel::pedirConfirmacion,
                     onConfirmar = riesgoViewModel::registrarConfirmacion,
+                    onAvisoDia = riesgoViewModel::enviarAvisoDia,
                     onVolver = { navController.popBackStack() }
                 )
             }

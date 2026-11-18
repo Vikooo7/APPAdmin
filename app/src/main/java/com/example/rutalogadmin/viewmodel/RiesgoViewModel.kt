@@ -10,6 +10,8 @@ import com.example.rutalogadmin.data.remote.dto.RiesgoResponse
 import com.example.rutalogadmin.data.remote.dto.TableroResponse
 import com.example.rutalogadmin.data.remote.dto.PronosticoResponse
 import com.example.rutalogadmin.data.repository.RiesgoRepository
+import com.example.rutalogadmin.model.NivelRiesgo
+import com.example.rutalogadmin.model.ReglasRiesgo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +21,7 @@ import kotlinx.coroutines.launch
 data class RiesgoUiState(
     val cargando: Boolean = false,
     val respuesta: RiesgoResponse? = null,
-    /** true = solo las de riesgo alto (lo que el operador debe atender). */
+    /** true = solo las de riesgo alto o medio (las que tienen una acción según la ficha). */
     val soloAltos: Boolean = true,
     /** Id remoto del envío al que se le está pidiendo o registrando la confirmación. */
     val procesando: Int? = null,
@@ -27,7 +29,7 @@ data class RiesgoUiState(
     val mensajeEsError: Boolean = false
 ) {
     val visibles: List<RiesgoEntregaDto>
-        get() = respuesta?.datos.orEmpty().filter { !soloAltos || it.riesgoAlto }
+        get() = respuesta?.datos.orEmpty().filter { !soloAltos || ReglasRiesgo.nivel(it) != NivelRiesgo.BAJO }
 
     /** Para marcar en Asignación las entregas de riesgo alto (por número de guía). */
     val altosPorGuia: Map<String, RiesgoEntregaDto>
@@ -86,6 +88,11 @@ class RiesgoViewModel(private val repositorio: RiesgoRepository) : ViewModel() {
         repositorio.pedirConfirmacion(entrega.envio.id).map { r ->
             "SMS enviado a ${r.aviso?.destino ?: "el destinatario"}: pide confirmar el horario de ${r.numeroGuia}."
         }
+    }
+
+    /** Riesgo medio: aviso por notificación el mismo día. */
+    fun enviarAvisoDia(entrega: RiesgoEntregaDto) = accion(entrega) {
+        repositorio.avisoDia(entrega.envio.id).map { r -> "Aviso del día enviado a ${r.aviso?.destino ?: "el destinatario"} (${r.numeroGuia})." }
     }
 
     /** El destinatario respondió "1": habrá alguien. Con eso el modelo baja el riesgo. */

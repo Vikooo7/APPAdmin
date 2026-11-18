@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.rutalogadmin.data.remote.dto.RiesgoEntregaDto
 import com.example.rutalogadmin.model.AccionConfirmacion
+import com.example.rutalogadmin.model.NivelRiesgo
 import com.example.rutalogadmin.model.ReglasRiesgo
 import com.example.rutalogadmin.ui.components.AppScaffold
 import com.example.rutalogadmin.ui.components.BannerDegradado
@@ -64,7 +65,9 @@ fun RiesgoScreen(
     onSoloAltos: (Boolean) -> Unit,
     onPedir: (RiesgoEntregaDto) -> Unit,
     onConfirmar: (RiesgoEntregaDto) -> Unit,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    /** Riesgo medio: aviso por notificación el mismo día. */
+    onAvisoDia: (RiesgoEntregaDto) -> Unit = {}
 ) {
     LaunchedEffect(Unit) { onCargar() }
     val r = estado.respuesta
@@ -84,14 +87,16 @@ fun RiesgoScreen(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = r?.let { "${it.resumen.riesgoAlto} de ${it.resumen.entregas} con riesgo alto" } ?: "Calculando…",
+                                text = r?.let { "${it.resumen.riesgoAlto} alto · ${it.resumen.riesgoMedio} medio de ${it.resumen.entregas}" } ?: "Calculando…",
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
                             r?.let {
                                 Text(
-                                    text = "Avisados: ${it.resumen.confirmacionPedida} · riesgo alto desde ${ReglasRiesgo.porcentaje(it.modelo.umbralRiesgoAlto)}",
+                                    text = "Alto desde ${ReglasRiesgo.porcentaje(it.modelo.umbralRiesgoAlto)}" +
+                                        (it.modelo.umbralRiesgoMedio?.let { m -> " · medio desde ${ReglasRiesgo.porcentaje(m)}" } ?: "") +
+                                        " · avisados: ${it.resumen.confirmacionPedida + it.resumen.avisoDiaEnviado}",
                                     color = Color.White.copy(alpha = 0.85f),
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -110,7 +115,7 @@ fun RiesgoScreen(
 
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Solo riesgo alto", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text("Solo riesgo alto y medio", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = estado.soloAltos, onCheckedChange = onSoloAltos)
                 }
             }
@@ -119,8 +124,8 @@ fun RiesgoScreen(
                 item {
                     EstadoVacio(
                         icono = Icons.Default.TaskAlt,
-                        titulo = "Sin entregas de riesgo alto",
-                        mensaje = "Ninguna entrega abierta supera el umbral del modelo."
+                        titulo = "Sin entregas de riesgo alto o medio",
+                        mensaje = "Ninguna entrega abierta llega al nivel medio del modelo."
                     )
                 }
             }
@@ -130,13 +135,16 @@ fun RiesgoScreen(
                     e = e,
                     procesando = estado.procesando == e.envio.id,
                     onPedir = { onPedir(e) },
-                    onConfirmar = { onConfirmar(e) }
+                    onConfirmar = { onConfirmar(e) },
+                    onAvisoDia = { onAvisoDia(e) }
                 )
             }
 
             item {
                 Text(
-                    text = "Modelo: regresión logística entrenada con 9 semanas de histórico simulado (notebook RutaLog_ML). " +
+                    text = "Niveles de la ficha: alto → pedir confirmación del horario · medio (la mitad del umbral alto) → " +
+                        "aviso el mismo día · bajo → sin acción. " +
+                        "Modelo: regresión logística entrenada con 9 semanas de histórico simulado (notebook RutaLog_ML). " +
                         "Usa franja, zona, intentos previos, contraentrega, monto, historial del destinatario y si confirmó el horario. " +
                         "La franja sale del orden de la parada en la ruta del día (5 paradas por franja de 2 h).",
                     style = MaterialTheme.typography.bodySmall,
@@ -149,8 +157,19 @@ fun RiesgoScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FilaRiesgo(e: RiesgoEntregaDto, procesando: Boolean, onPedir: () -> Unit, onConfirmar: () -> Unit) {
-    val color = if (e.riesgoAlto) RojoRiesgo else VerdeOk
+private fun FilaRiesgo(
+    e: RiesgoEntregaDto,
+    procesando: Boolean,
+    onPedir: () -> Unit,
+    onConfirmar: () -> Unit,
+    onAvisoDia: () -> Unit
+) {
+    val nivel = ReglasRiesgo.nivel(e)
+    val color = when (nivel) {
+        NivelRiesgo.ALTO -> RojoRiesgo
+        NivelRiesgo.MEDIO -> Ambar
+        NivelRiesgo.BAJO -> VerdeOk
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -167,7 +186,10 @@ private fun FilaRiesgo(e: RiesgoEntregaDto, procesando: Boolean, onPedir: () -> 
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Text(ReglasRiesgo.porcentaje(e.probabilidad), color = color, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(ReglasRiesgo.porcentaje(e.probabilidad), color = color, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(nivel.etiqueta, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                }
             }
             LinearProgressIndicator(progress = { e.probabilidad.toFloat() }, color = color, modifier = Modifier.fillMaxWidth())
             Text(
@@ -184,7 +206,13 @@ private fun FilaRiesgo(e: RiesgoEntregaDto, procesando: Boolean, onPedir: () -> 
                     e.factores.forEach { Etiqueta(it, Ambar) }
                 }
             }
-            when (ReglasRiesgo.accion(e.confirmacion)) {
+            when (ReglasRiesgo.accion(e)) {
+                AccionConfirmacion.AVISO_DIA -> OutlinedButton(onClick = onAvisoDia, enabled = !procesando, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Sms, contentDescription = null)
+                    Text(if (procesando) "  Enviando…" else "  Enviar aviso del día")
+                }
+                AccionConfirmacion.AVISO_ENVIADO -> Etiqueta("Aviso del día enviado", VerdeOk)
+                AccionConfirmacion.SIN_ACCION -> Etiqueta("Riesgo bajo · sin acción", VerdeOk)
                 AccionConfirmacion.PEDIR -> Button(onClick = onPedir, enabled = !procesando, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Sms, contentDescription = null)
                     Text(if (procesando) "  Enviando SMS…" else "  Pedir confirmación del horario")
